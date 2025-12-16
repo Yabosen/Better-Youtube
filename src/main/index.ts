@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { join } from 'path';
+import { existsSync } from 'fs';
 import {
   PluginLoader,
   AdBlocker,
@@ -16,16 +17,39 @@ import {
 } from '../plugins';
 import { config } from '../config/Config';
 import { copyDefaultPlugins } from './copy-plugins';
-import { app as electronApp } from 'electron';
 
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let pluginLoader: PluginLoader | null = null;
 
 async function createMainWindow() {
+  // Icon path - try .ico first, then .png
+  let iconPath: string | undefined;
+  if (app.isPackaged) {
+    // In packaged app, icon is embedded by electron-builder
+    // Try to find it in resources
+    const icoPath = join(process.resourcesPath, 'build', 'icon.ico');
+    const pngPath = join(process.resourcesPath, 'build', 'icon.png');
+    if (existsSync(icoPath)) {
+      iconPath = icoPath;
+    } else if (existsSync(pngPath)) {
+      iconPath = pngPath;
+    }
+  } else {
+    // In development, use build folder
+    const icoPath = join(__dirname, '../../build/icon.ico');
+    const pngPath = join(__dirname, '../../build/icon.png');
+    if (existsSync(icoPath)) {
+      iconPath = icoPath;
+    } else if (existsSync(pngPath)) {
+      iconPath = pngPath;
+    }
+  }
+  
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
@@ -80,8 +104,10 @@ async function createMainWindow() {
     `, { worldId: 'main' } as any).catch(() => {});
   });
 
-  // Open DevTools for debugging
-  mainWindow.webContents.openDevTools();
+  // Open DevTools only in development
+  if (!app.isPackaged && process.env.NODE_ENV !== 'production') {
+    mainWindow.webContents.openDevTools();
+  }
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
@@ -198,11 +224,32 @@ function createSettingsWindow() {
     return;
   }
 
+  // Icon path - try .ico first, then .png
+  let iconPath: string | undefined;
+  if (app.isPackaged) {
+    const icoPath = join(process.resourcesPath, 'build', 'icon.ico');
+    const pngPath = join(process.resourcesPath, 'build', 'icon.png');
+    if (existsSync(icoPath)) {
+      iconPath = icoPath;
+    } else if (existsSync(pngPath)) {
+      iconPath = pngPath;
+    }
+  } else {
+    const icoPath = join(__dirname, '../../build/icon.ico');
+    const pngPath = join(__dirname, '../../build/icon.png');
+    if (existsSync(icoPath)) {
+      iconPath = icoPath;
+    } else if (existsSync(pngPath)) {
+      iconPath = pngPath;
+    }
+  }
+  
   settingsWindow = new BrowserWindow({
     width: 800,
     height: 600,
     parent: mainWindow || undefined,
     modal: false,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -241,7 +288,18 @@ function createSettingsWindow() {
 
   // Determine if we should use dev server or built files
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-  const settingsPath = join(__dirname, '../../settings.html');
+  
+  // Get the correct path for settings.html
+  // In packaged app, files are in app.asar, so we need to use app.getAppPath()
+  // In dev, files are in dist folder
+  let settingsPath: string;
+  if (app.isPackaged) {
+    // In packaged app, settings.html is in the dist folder (which is in app.asar)
+    settingsPath = join(app.getAppPath(), 'dist', 'settings.html');
+  } else {
+    // In dev, settings.html is in the root or dist folder
+    settingsPath = join(__dirname, '../../dist/settings.html');
+  }
   
   if (isDev) {
     // Try dev server first, fallback to built file if available
@@ -250,7 +308,7 @@ function createSettingsWindow() {
       // Fallback to built file if it exists
       if (settingsWindow && !settingsWindow.isDestroyed()) {
         settingsWindow.loadFile(settingsPath).catch(err2 => {
-          console.error('Failed to load settings from built file:', err2);
+          console.error('Failed to load settings from built file:', err2, settingsPath);
         // Show helpful error message
         if (settingsWindow && !settingsWindow.isDestroyed()) {
           settingsWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
@@ -304,8 +362,26 @@ function createSettingsWindow() {
   } else {
     // Production: load from built file
     if (settingsWindow && !settingsWindow.isDestroyed()) {
+      // Try loading the file
       settingsWindow.loadFile(settingsPath).catch(err => {
         console.error('Failed to load settings file:', err, settingsPath);
+        // If file doesn't exist, try alternative paths
+        const altPaths = [
+          join(app.getAppPath(), 'dist', 'settings.html'),
+          join(app.getAppPath(), 'settings.html'),
+        ];
+        
+        // Try alternative paths
+        let pathIndex = 0;
+        const tryNextPath = () => {
+          if (pathIndex < altPaths.length && settingsWindow && !settingsWindow.isDestroyed()) {
+            settingsWindow.loadFile(altPaths[pathIndex]).catch(() => {
+              pathIndex++;
+              tryNextPath();
+            });
+          }
+        };
+        tryNextPath();
       });
     }
   }
@@ -439,7 +515,7 @@ ipcMain.handle('window-action', (event, action: string) => {
 // App lifecycle
 app.whenReady().then(async () => {
   // Initialize plugin loader
-  const userDataPath = electronApp.getPath('userData');
+  const userDataPath = app.getPath('userData');
   const pluginsDir = join(userDataPath, 'plugins');
   pluginLoader = new PluginLoader(pluginsDir);
   pluginLoader.setSession(session.defaultSession);

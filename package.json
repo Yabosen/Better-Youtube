@@ -51,8 +51,14 @@
     },
     "files": [
       "dist/**/*",
+      "settings.html",
+      "build/**/*",
       "node_modules/**/*",
       "package.json"
+    ],
+    "asarUnpack": [
+      "dist/settings.html",
+      "dist/assets/**/*"
     ],
     "win": {
       "target": [
