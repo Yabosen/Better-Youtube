@@ -77,8 +77,13 @@ export class PluginLoader {
 
       if (pluginModule && pluginModule.default) {
         const plugin: Plugin = new pluginModule.default(pluginName);
-        this.plugins.set(pluginName, plugin);
-        console.log(`Loaded plugin: ${pluginName}`);
+        // Only set if not already registered (registered plugins take precedence)
+        if (!this.plugins.has(pluginName)) {
+          this.plugins.set(pluginName, plugin);
+          console.log(`Loaded plugin from filesystem: ${pluginName}`);
+        } else {
+          console.log(`Skipping filesystem plugin ${pluginName} - already registered`);
+        }
       }
     } catch (error) {
       console.error(`Error loading plugin ${pluginName}:`, error);
@@ -169,14 +174,25 @@ export class PluginLoader {
    */
   public async callOnRendererLoaded(window: BrowserWindow): Promise<void> {
     const enabledPlugins = this.getEnabledPlugins();
+    console.log(`[PluginLoader] callOnRendererLoaded: Found ${enabledPlugins.length} enabled plugins`);
+    console.log(`[PluginLoader] Enabled plugins:`, enabledPlugins.map(p => p.metadata.name));
     
     for (const plugin of enabledPlugins) {
-      if (plugin.onRendererLoaded) {
+      // Check if the method exists (including inherited methods)
+      const hasHook = typeof plugin.onRendererLoaded === 'function';
+      const proto = Object.getPrototypeOf(plugin);
+      const methods = proto ? Object.getOwnPropertyNames(proto).join(', ') : 'none';
+      console.log(`[PluginLoader] Plugin ${plugin.metadata.name}: hasHook=${hasHook}, type=${typeof plugin.onRendererLoaded}, methods=${methods}`);
+      
+      if (hasHook && plugin.onRendererLoaded) {
         try {
+          console.log(`[PluginLoader] Calling onRendererLoaded for: ${plugin.metadata.name}`);
           await plugin.onRendererLoaded(window);
         } catch (error) {
-          console.error(`Error in ${plugin.metadata.name}.onRendererLoaded:`, error);
+          console.error(`[PluginLoader] Error in ${plugin.metadata.name}.onRendererLoaded:`, error);
         }
+      } else {
+        console.log(`[PluginLoader] Plugin ${plugin.metadata.name} has no onRendererLoaded hook`);
       }
     }
   }

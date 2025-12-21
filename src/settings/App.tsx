@@ -11,15 +11,27 @@ interface PluginConfig {
   [key: string]: any;
 }
 
+type MenuTab = 'plugins' | 'about';
+
 function App() {
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlugin, setSelectedPlugin] = useState<string | null>(null);
   const [pluginConfigs, setPluginConfigs] = useState<Record<string, PluginConfig>>({});
+  const [returnDislikeEnabled, setReturnDislikeEnabled] = useState(true);
+  const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('plugins');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     loadPlugins();
+    checkFullscreen();
+    const interval = setInterval(checkFullscreen, 500);
+    return () => clearInterval(interval);
   }, []);
+
+  const checkFullscreen = () => {
+    setIsFullscreen(!!document.fullscreenElement);
+  };
 
   const loadPlugins = async () => {
     try {
@@ -32,6 +44,10 @@ function App() {
         configs[plugin.name] = await window.electronAPI.getPluginConfig(plugin.name);
       }
       setPluginConfigs(configs);
+      
+      // Load Return YouTube Dislike config
+      const rydConfig = await window.electronAPI.getReturnDislikeConfig();
+      setReturnDislikeEnabled(rydConfig.enabled !== false);
     } catch (error) {
       console.error('Error loading plugins:', error);
     } finally {
@@ -63,6 +79,16 @@ function App() {
       console.error('Error updating plugin config:', error);
     }
   };
+
+  const toggleReturnDislike = async (enabled: boolean) => {
+    try {
+      await window.electronAPI.toggleReturnDislike(enabled);
+      setReturnDislikeEnabled(enabled);
+    } catch (error) {
+      console.error('Error toggling Return YouTube Dislike:', error);
+    }
+  };
+
 
   const renderPluginSettings = (plugin: Plugin) => {
     const config = pluginConfigs[plugin.name] || {};
@@ -133,37 +159,87 @@ function App() {
                 type="text"
                 value={config.downloadPath || ''}
                 onChange={e => updatePluginConfig(plugin.name, 'downloadPath', e.target.value)}
-                placeholder="Leave empty for default"
+                placeholder="Default: userData/downloads"
               />
-            </div>
-            <div className="setting-item">
-              <label>Default Quality:</label>
-              <select
-                value={config.defaultQuality || 'highest'}
-                onChange={e => updatePluginConfig(plugin.name, 'defaultQuality', e.target.value)}
-              >
-                <option value="highest">Highest</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
             </div>
           </div>
         );
 
-      case 'discord-rpc':
+      case 'unhook':
         return (
           <div className="plugin-settings">
-            <p className="plugin-description">Show what you're watching on Discord</p>
+            <p className="plugin-description">
+              Hide YouTube related videos, shorts, comments, suggestions, homepage recommendations, and other distractions.
+            </p>
             <div className="setting-item">
-              <label>Discord Client ID:</label>
-              <input
-                type="text"
-                value={config.clientId || ''}
-                onChange={e => updatePluginConfig(plugin.name, 'clientId', e.target.value)}
-                placeholder="Get from https://discord.com/developers/applications"
-              />
-              <small>Create a Discord application and paste your Client ID here</small>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.hideHomeFeed === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'hideHomeFeed', e.target.checked)}
+                />
+                Hide Homepage Feed
+              </label>
+            </div>
+            <div className="setting-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.hideShorts === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'hideShorts', e.target.checked)}
+                />
+                Hide YouTube Shorts
+              </label>
+            </div>
+            <div className="setting-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.hideComments === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'hideComments', e.target.checked)}
+                />
+                Hide Comments
+              </label>
+            </div>
+            <div className="setting-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.hideRecommended === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'hideRecommended', e.target.checked)}
+                />
+                Hide Recommended (Related Videos)
+              </label>
+            </div>
+            <div className="setting-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.hideSidebar === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'hideSidebar', e.target.checked)}
+                />
+                Hide Video Sidebar
+              </label>
+            </div>
+            <div className="setting-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.hideEndScreen === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'hideEndScreen', e.target.checked)}
+                />
+                Hide End Screen Videowall
+              </label>
+            </div>
+            <div className="setting-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.disableAutoplay === true}
+                  onChange={e => updatePluginConfig(plugin.name, 'disableAutoplay', e.target.checked)}
+                />
+                Disable Autoplay
+              </label>
             </div>
           </div>
         );
@@ -171,7 +247,7 @@ function App() {
       case 'lastfm':
         return (
           <div className="plugin-settings">
-            <p className="plugin-description">Scrobble YouTube videos to Last.fm</p>
+            <p className="plugin-description">Scrobble YouTube Music to Last.fm</p>
             <div className="setting-item">
               <label>API Key:</label>
               <input
@@ -224,16 +300,16 @@ function App() {
               <label>Start Color:</label>
               <input
                 type="color"
-                value={config.colorStart || '#ff0000'}
-                onChange={e => updatePluginConfig(plugin.name, 'colorStart', e.target.value)}
+                value={config.startColor || '#ff0000'}
+                onChange={e => updatePluginConfig(plugin.name, 'startColor', e.target.value)}
               />
             </div>
             <div className="setting-item">
               <label>End Color:</label>
               <input
                 type="color"
-                value={config.colorEnd || '#00ff00'}
-                onChange={e => updatePluginConfig(plugin.name, 'colorEnd', e.target.value)}
+                value={config.endColor || '#0000ff'}
+                onChange={e => updatePluginConfig(plugin.name, 'endColor', e.target.value)}
               />
             </div>
           </div>
@@ -242,48 +318,30 @@ function App() {
       case 'audio-compressor':
         return (
           <div className="plugin-settings">
-            <p className="plugin-description">Audio compression and dynamic range control</p>
+            <p className="plugin-description">Audio compression for better sound quality</p>
             <div className="setting-item">
               <label>Threshold (dB):</label>
               <input
-                type="number"
-                value={config.threshold || -24}
-                onChange={e => updatePluginConfig(plugin.name, 'threshold', parseInt(e.target.value))}
+                type="range"
                 min="-60"
                 max="0"
+                step="1"
+                value={config.threshold || -24}
+                onChange={e => updatePluginConfig(plugin.name, 'threshold', parseInt(e.target.value))}
               />
+              <span>{config.threshold || -24} dB</span>
             </div>
             <div className="setting-item">
               <label>Ratio:</label>
               <input
-                type="number"
-                value={config.ratio || 12}
-                onChange={e => updatePluginConfig(plugin.name, 'ratio', parseInt(e.target.value))}
+                type="range"
                 min="1"
                 max="20"
+                step="0.5"
+                value={config.ratio || 4}
+                onChange={e => updatePluginConfig(plugin.name, 'ratio', parseFloat(e.target.value))}
               />
-            </div>
-            <div className="setting-item">
-              <label>Attack (ms):</label>
-              <input
-                type="number"
-                value={(config.attack || 0.003) * 1000}
-                onChange={e => updatePluginConfig(plugin.name, 'attack', parseFloat(e.target.value) / 1000)}
-                min="0.1"
-                max="100"
-                step="0.1"
-              />
-            </div>
-            <div className="setting-item">
-              <label>Release (ms):</label>
-              <input
-                type="number"
-                value={(config.release || 0.25) * 1000}
-                onChange={e => updatePluginConfig(plugin.name, 'release', parseFloat(e.target.value) / 1000)}
-                min="10"
-                max="1000"
-                step="10"
-              />
+              <span>{config.ratio || 4}:1</span>
             </div>
           </div>
         );
@@ -344,23 +402,6 @@ function App() {
               <label>
                 <input
                   type="checkbox"
-                  checked={config.keyboardShortcuts !== false}
-                  onChange={e => updatePluginConfig(plugin.name, 'keyboardShortcuts', e.target.checked)}
-                />
-                Enable keyboard shortcuts
-              </label>
-            </div>
-          </div>
-        );
-
-      case 'in-app-menu':
-        return (
-          <div className="plugin-settings">
-            <p className="plugin-description">Custom title bar and in-app menu</p>
-            <div className="setting-item">
-              <label>
-                <input
-                  type="checkbox"
                   checked={config.hideTitleBar === true}
                   onChange={e => updatePluginConfig(plugin.name, 'hideTitleBar', e.target.checked)}
                 />
@@ -389,6 +430,130 @@ function App() {
     }
   };
 
+  const renderMenuContent = () => {
+    switch (activeMenuTab) {
+      case 'plugins':
+        return (
+          <div className="menu-content">
+            <h2>Plugins</h2>
+            <div className="plugin-grid">
+              {/* Return YouTube Dislike Extension */}
+              <div className="plugin-card">
+                <div className="plugin-card-header">
+                  <span className="plugin-card-name">Return YouTube Dislike</span>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={returnDislikeEnabled}
+                      onChange={e => toggleReturnDislike(e.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+                <p className="plugin-card-desc">Shows dislike counts on YouTube videos</p>
+                {selectedPlugin === 'return-youtube-dislike' && (
+                  <div className="plugin-card-settings">
+                    {renderPluginSettings({ name: 'return-youtube-dislike', enabled: returnDislikeEnabled, description: 'Shows dislike counts' } as Plugin)}
+                  </div>
+                )}
+              </div>
+
+              {/* Unhook Plugin */}
+              {plugins.find(p => p.name === 'unhook') && (
+                <div
+                  className={`plugin-card ${selectedPlugin === 'unhook' ? 'active' : ''}`}
+                  onClick={() => setSelectedPlugin(selectedPlugin === 'unhook' ? null : 'unhook')}
+                >
+                  <div className="plugin-card-header">
+                    <span className="plugin-card-name">Unhook</span>
+                    <label className="toggle-switch" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={plugins.find(p => p.name === 'unhook')?.enabled || false}
+                        onChange={e => {
+                          e.stopPropagation();
+                          togglePlugin('unhook', e.target.checked);
+                        }}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+                  <p className="plugin-card-desc">Remove YouTube recommendations, shorts, comments, and distractions</p>
+                  {selectedPlugin === 'unhook' && (
+                    <div className="plugin-card-settings">
+                      {renderPluginSettings(plugins.find(p => p.name === 'unhook')!)}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {plugins
+                .filter(plugin => {
+                  // Only show essential/commonly used plugins
+                  const essentialPlugins = ['adblocker', 'sponsorblock', 'downloader', 'unhook'];
+                  return essentialPlugins.includes(plugin.name);
+                })
+                .map(plugin => (
+                <div
+                  key={plugin.name}
+                  className={`plugin-card ${selectedPlugin === plugin.name ? 'active' : ''}`}
+                  onClick={() => setSelectedPlugin(selectedPlugin === plugin.name ? null : plugin.name)}
+                >
+                  <div className="plugin-card-header">
+                    <span className="plugin-card-name">
+                      {plugin.name.split('-').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                      ).join(' ')}
+                    </span>
+                    <label className="toggle-switch" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={plugin.enabled}
+                        onChange={e => {
+                          e.stopPropagation();
+                          togglePlugin(plugin.name, e.target.checked);
+                        }}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </div>
+                  {plugin.description && (
+                    <p className="plugin-card-desc">{plugin.description}</p>
+                  )}
+                  {selectedPlugin === plugin.name && (
+                    <div className="plugin-card-settings">
+                      {renderPluginSettings(plugin)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+
+      case 'about':
+        return (
+          <div className="menu-content">
+            <h2>About</h2>
+            <div className="about-content">
+              <h3>Better YouTube</h3>
+              <p>Version 2.0.0</p>
+              <p>Open Source YouTube Desktop Client with Plugin System</p>
+              <p style={{ marginTop: '20px' }}>
+                <a href="https://github.com" target="_blank" rel="noopener noreferrer" style={{ color: '#4a9eff' }}>
+                  GitHub Repository
+                </a>
+              </p>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -399,59 +564,24 @@ function App() {
 
   return (
     <div className="app">
-      <div className="settings-container">
-        <div className="sidebar">
-          <h1>Settings</h1>
-          <div className="plugin-list">
-            {plugins.map(plugin => (
-              <div
-                key={plugin.name}
-                className={`plugin-item ${selectedPlugin === plugin.name ? 'active' : ''}`}
-                onClick={() => setSelectedPlugin(plugin.name)}
-              >
-                <div className="plugin-header">
-                  <span className="plugin-name">
-                    {plugin.name.split('-').map(word => 
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ')}
-                  </span>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={plugin.enabled}
-                      onChange={e => {
-                        e.stopPropagation();
-                        togglePlugin(plugin.name, e.target.checked);
-                      }}
-                    />
-                    <span className="slider"></span>
-                  </label>
-                </div>
-                {plugin.description && (
-                  <p className="plugin-desc-small">{plugin.description}</p>
-                )}
-              </div>
-            ))}
+      {!isFullscreen && (
+        <div className="menu-bar">
+          <div 
+            className={`menu-item ${activeMenuTab === 'plugins' ? 'active' : ''}`}
+            onClick={() => setActiveMenuTab('plugins')}
+          >
+            Plugins
+          </div>
+          <div 
+            className={`menu-item ${activeMenuTab === 'about' ? 'active' : ''}`}
+            onClick={() => setActiveMenuTab('about')}
+          >
+            About
           </div>
         </div>
-
-        <div className="main-content">
-          {selectedPlugin ? (
-            <>
-              <h2>
-                {selectedPlugin.split('-').map(word => 
-                  word.charAt(0).toUpperCase() + word.slice(1)
-                ).join(' ')} Settings
-              </h2>
-              {renderPluginSettings(plugins.find(p => p.name === selectedPlugin)!)}
-            </>
-          ) : (
-            <div className="welcome">
-              <h2>Welcome to Settings</h2>
-              <p>Select a plugin from the sidebar to configure it.</p>
-            </div>
-          )}
-        </div>
+      )}
+      <div className="content-area">
+        {renderMenuContent()}
       </div>
     </div>
   );

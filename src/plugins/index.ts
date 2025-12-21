@@ -10,12 +10,15 @@ export { PluginLoader } from './PluginLoader';
 export { AdBlocker } from './core/AdBlocker';
 export { SponsorBlock } from './core/SponsorBlock';
 export { Downloader } from './core/Downloader';
+export { Unhook } from './core/Unhook';
+
 
 // UI Plugins
 export { AlbumColorTheme } from './ui/AlbumColorTheme';
 export { BetterFullscreen } from './ui/BetterFullscreen';
 export { Visualizer } from './ui/Visualizer';
 export { InAppMenu } from './ui/InAppMenu';
+export { AppMenuBar } from './ui/AppMenuBar';
 
 // Integration Plugins
 export { DiscordRPCPlugin } from './integrations/DiscordRPC';

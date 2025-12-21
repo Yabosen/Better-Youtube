@@ -49,16 +49,18 @@
     "directories": {
       "output": "release"
     },
-    "files": [
-      "dist/**/*",
-      "settings.html",
-      "build/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
+      "files": [
+        "dist/**/*",
+        "settings.html",
+        "build/**/*",
+        "extensions/**/*",
+        "node_modules/**/*",
+        "package.json"
+      ],
     "asarUnpack": [
       "dist/settings.html",
-      "dist/assets/**/*"
+      "dist/assets/**/*",
+      "extensions/**/*"
     ],
     "win": {
       "target": [

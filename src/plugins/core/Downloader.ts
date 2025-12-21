@@ -122,7 +122,7 @@ export class Downloader extends BasePlugin {
       const filename = `${info.videoDetails.title.replace(/[^a-z0-9]/gi, '_')}.${format.container}`;
       const outputPath = join(downloadDir, filename);
       
-      const videoStream = ytdl(videoUrl, { format });
+      const videoStream = ytdl.default ? ytdl.default(videoUrl, { format }) : (ytdl as any)(videoUrl, { format });
       const writeStream = createWriteStream(outputPath);
       
       this.downloadQueue.set(downloadId, {

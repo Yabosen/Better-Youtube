@@ -6,10 +6,12 @@ import {
   AdBlocker,
   SponsorBlock,
   Downloader,
+  Unhook,
   AlbumColorTheme,
   BetterFullscreen,
   Visualizer,
   InAppMenu,
+  AppMenuBar,
   DiscordRPCPlugin,
   LastFM,
   AudioCompressor,
@@ -21,6 +23,7 @@ import { copyDefaultPlugins } from './copy-plugins';
 let mainWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let pluginLoader: PluginLoader | null = null;
+let returnDislikeExtensionId: string | null = null;
 
 async function createMainWindow() {
   // Icon path - try .ico first, then .png
@@ -64,17 +67,7 @@ async function createMainWindow() {
   // Remove Trusted Types from CSP headers
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     const responseHeaders = { ...details.responseHeaders };
-    
-    if (responseHeaders['content-security-policy']) {
-      responseHeaders['content-security-policy'] = responseHeaders['content-security-policy'].map((header: string) => {
-        return header
-          .replace(/trusted-types[^;]*;?/gi, '')
-          .replace(/require-trusted-types-for[^;]*;?/gi, '')
-          .replace(/;\s*;/g, ';') // Clean up double semicolons
-          .trim();
-      });
-    }
-    
+    delete responseHeaders['content-security-policy'];
     callback({ responseHeaders });
   });
 
@@ -264,127 +257,179 @@ function createSettingsWindow() {
     settingsWindow?.show();
   });
 
-  // Error handling
-  settingsWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-    console.error('Settings window failed to load:', errorCode, errorDescription, validatedURL);
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      const errorHTML = `
-        <div style="padding: 40px; text-align: center; font-family: sans-serif;">
-          <h1>Failed to load Settings</h1>
-          <p>Error: ${errorCode} - ${errorDescription}</p>
-          <p>URL: ${validatedURL}</p>
-          <p style="margin-top: 20px; color: #666;">
-            ${process.env.NODE_ENV === 'development' 
-              ? 'Make sure the Vite dev server is running (npm run dev)' 
-              : 'Settings file not found. Please rebuild the app.'}
-          </p>
-        </div>
-      `;
-      settingsWindow.webContents.executeJavaScript(`
-        document.body.innerHTML = ${JSON.stringify(errorHTML)};
-      `).catch(console.error);
-    }
-  });
-
   // Determine if we should use dev server or built files
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   
   // Get the correct path for settings.html
-  // In packaged app, files are in app.asar, so we need to use app.getAppPath()
-  // In dev, files are in dist folder
   let settingsPath: string;
   if (app.isPackaged) {
-    // In packaged app, settings.html is in the dist folder (which is in app.asar)
+    // In packaged app, files are in app.asar
     settingsPath = join(app.getAppPath(), 'dist', 'settings.html');
   } else {
-    // In dev, settings.html is in the root or dist folder
+    // In dev, check both dist and root
     settingsPath = join(__dirname, '../../dist/settings.html');
   }
   
-  if (isDev) {
-    // Try dev server first, fallback to built file if available
-    settingsWindow.loadURL('http://localhost:5173/settings.html').catch(err => {
-      console.warn('Dev server not available, trying built file:', err);
-      // Fallback to built file if it exists
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.loadFile(settingsPath).catch(err2 => {
-          console.error('Failed to load settings from built file:', err2, settingsPath);
-        // Show helpful error message
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-          settingsWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="UTF-8">
-              <title>Settings - Error</title>
-              <style>
-                body {
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                  padding: 40px;
-                  text-align: center;
-                  background: #f5f5f5;
-                }
-                h1 { color: #d32f2f; }
-                p { color: #666; margin: 10px 0; }
-                code {
-                  background: #e0e0e0;
-                  padding: 2px 6px;
-                  border-radius: 3px;
-                  font-family: monospace;
-                }
-                .instructions {
-                  text-align: left;
-                  max-width: 500px;
-                  margin: 20px auto;
-                  background: white;
-                  padding: 20px;
-                  border-radius: 8px;
-                  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-              </style>
-            </head>
-            <body>
-              <h1>Settings Window Error</h1>
-              <p>Could not load settings window.</p>
-              <div class="instructions">
-                <p><strong>Option 1 (Recommended for development):</strong></p>
-                <p>Run <code>npm run dev</code> in a separate terminal, then try again.</p>
-                <p style="margin-top: 15px;"><strong>Option 2:</strong></p>
-                <p>Build the renderer: <code>npm run build:renderer</code>, then try again.</p>
-              </div>
-            </body>
-            </html>
-          `)}`);
+  // Track if we've tried the fallback to avoid infinite loops
+  let triedFallback = false;
+  
+  // Show error message if settings can't load
+  const showSettingsError = () => {
+    if (!settingsWindow || settingsWindow.isDestroyed()) return;
+    
+    const errorHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Settings - Error</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            text-align: center;
+            background: #1a1a1a;
+            color: #fff;
           }
-        });
+          h1 { color: #ff4444; }
+          p { color: #ccc; margin: 10px 0; }
+          code {
+            background: #2a2a2a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            color: #4CAF50;
+          }
+          .instructions {
+            text-align: left;
+            max-width: 500px;
+            margin: 20px auto;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Settings Window Error</h1>
+        <p>Could not load settings window.</p>
+        <div class="instructions">
+          <p><strong>Option 1 (Recommended for development):</strong></p>
+          <p>Run <code>npm run dev</code> in a separate terminal, then try again.</p>
+          <p style="margin-top: 15px;"><strong>Option 2:</strong></p>
+          <p>Build the renderer: <code>npm run build:renderer</code>, then try again.</p>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    settingsWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`).catch(console.error);
+  };
+  
+  // Handle failed loads and fallback to built file
+  settingsWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Settings window failed to load:', errorCode, errorDescription, validatedURL);
+    
+    // Only handle connection refused errors for dev server
+    if (isDev && errorCode === -102 && validatedURL.includes('localhost:5173') && !triedFallback) {
+      triedFallback = true;
+      console.warn('Dev server not available, trying built file...');
+      
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        if (existsSync(settingsPath)) {
+          settingsWindow.loadFile(settingsPath).catch(err2 => {
+            console.error('Failed to load settings from built file:', err2);
+            showSettingsError();
+          });
+        } else {
+          console.warn('Settings file not found at:', settingsPath);
+          showSettingsError();
+        }
       }
-    });
-  } else {
-    // Production: load from built file
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      // Try loading the file
-      settingsWindow.loadFile(settingsPath).catch(err => {
-        console.error('Failed to load settings file:', err, settingsPath);
-        // If file doesn't exist, try alternative paths
-        const altPaths = [
+    } else if (!isDev && errorCode !== 0 && !triedFallback) {
+      // Production: try alternative paths
+      triedFallback = true;
+      const pathsToTry = [
+        join(app.getAppPath(), 'dist', 'settings.html'),
+        join(app.getAppPath(), 'settings.html'),
+      ];
+      
+      let pathIndex = 0;
+      const tryNextPath = () => {
+        if (pathIndex >= pathsToTry.length || !settingsWindow || settingsWindow.isDestroyed()) {
+          showSettingsError();
+          return;
+        }
+        
+        const path = pathsToTry[pathIndex];
+        if (existsSync(path)) {
+          settingsWindow.loadFile(path).catch(() => {
+            pathIndex++;
+            tryNextPath();
+          });
+        } else {
+          pathIndex++;
+          tryNextPath();
+        }
+      };
+      tryNextPath();
+    } else if (!triedFallback) {
+      // Other errors - show error message
+      showSettingsError();
+    }
+  });
+  
+  // Function to load settings with fallbacks
+  const loadSettings = () => {
+    if (!settingsWindow || settingsWindow.isDestroyed()) return;
+    
+    triedFallback = false;
+    
+    if (isDev) {
+      // Try dev server first - if it fails, did-fail-load will handle fallback
+      settingsWindow.loadURL('http://localhost:5173/settings.html').catch(() => {
+        // This catch is for immediate errors, but connection refused happens async
+        // The did-fail-load handler will catch it
+      });
+    } else {
+      // Production: try primary path first
+      if (existsSync(settingsPath)) {
+        settingsWindow.loadFile(settingsPath).catch(() => {
+          // If primary fails, did-fail-load will try alternatives
+        });
+      } else {
+        // Try alternative paths
+        const pathsToTry = [
           join(app.getAppPath(), 'dist', 'settings.html'),
           join(app.getAppPath(), 'settings.html'),
         ];
         
-        // Try alternative paths
         let pathIndex = 0;
         const tryNextPath = () => {
-          if (pathIndex < altPaths.length && settingsWindow && !settingsWindow.isDestroyed()) {
-            settingsWindow.loadFile(altPaths[pathIndex]).catch(() => {
+          if (pathIndex >= pathsToTry.length || !settingsWindow || settingsWindow.isDestroyed()) {
+            showSettingsError();
+            return;
+          }
+          
+          const path = pathsToTry[pathIndex];
+          if (existsSync(path)) {
+            settingsWindow.loadFile(path).catch(() => {
               pathIndex++;
               tryNextPath();
             });
+          } else {
+            pathIndex++;
+            tryNextPath();
           }
         };
         tryNextPath();
-      });
+      }
     }
-  }
+  };
+  
+  // Load settings
+  loadSettings();
 
   settingsWindow.on('closed', () => {
     settingsWindow = null;
@@ -492,22 +537,119 @@ ipcMain.handle('set-plugin-config', async (event, pluginName: string, pluginConf
   return false;
 });
 
+// Load Return YouTube Dislike extension
+async function loadReturnDislikeExtension() {
+  // Check if extension is enabled
+  const extensionConfig = config.get('returnDislike', { enabled: true });
+  if (!extensionConfig.enabled) {
+    console.log('Return YouTube Dislike extension is disabled');
+    return;
+  }
+
+  // Don't load if already loaded
+  if (returnDislikeExtensionId) {
+    console.log('Return YouTube Dislike extension already loaded');
+    return;
+  }
+
+  let rydPath: string;
+  if (app.isPackaged) {
+    // In packaged app, extension is unpacked from asar
+    // Try multiple possible locations
+    const possiblePaths = [
+      join(process.resourcesPath, 'app.asar.unpacked', 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome'),
+      join(process.resourcesPath, 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome'),
+      join(__dirname, '..', 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome'),
+      join(app.getAppPath(), 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome'),
+    ];
+    
+    // Find the first existing path
+    rydPath = possiblePaths.find(path => existsSync(path)) || possiblePaths[0];
+  } else {
+    // In development, use the cloned extension
+    rydPath = join(__dirname, '..', '..', 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome');
+  }
+  
+  console.log('[DEBUG] Extension path:', rydPath);
+  console.log('[DEBUG] Does extension path exist?', existsSync(rydPath));
+  
+  if (existsSync(rydPath)) {
+    try {
+      const extension = await session.defaultSession.loadExtension(rydPath, { allowFileAccess: true });
+      returnDislikeExtensionId = extension.id;
+      console.log('Successfully loaded Return YouTube Dislike extension:', extension.name, extension.version);
+      
+      // Ensure API requests are not blocked
+      session.defaultSession.webRequest.onBeforeRequest(
+        {
+          urls: ['*://returnyoutubedislikeapi.com/*']
+        },
+        (details, callback) => {
+          // Allow all requests to the API
+          callback({});
+        }
+      );
+    } catch (e) {
+      console.error('Failed to load Return YouTube Dislike extension', e);
+    }
+  } else {
+    console.warn('Return YouTube Dislike extension path not found at:', rydPath);
+    console.warn('The extension will not be loaded. To fix this, ensure the extension is built in the extensions directory.');
+  }
+}
+
+// Unload Return YouTube Dislike extension
+async function unloadReturnDislikeExtension() {
+  if (!returnDislikeExtensionId) {
+    console.log('Return YouTube Dislike extension is not loaded');
+    return;
+  }
+
+  try {
+    await session.defaultSession.removeExtension(returnDislikeExtensionId);
+    returnDislikeExtensionId = null;
+    console.log('Successfully unloaded Return YouTube Dislike extension');
+  } catch (e) {
+    console.error('Failed to unload Return YouTube Dislike extension', e);
+  }
+}
+
+// Return YouTube Dislike extension handlers
+ipcMain.handle('toggle-return-dislike', async (event, enabled: boolean) => {
+  config.set('returnDislike', { enabled });
+  if (enabled) {
+    await loadReturnDislikeExtension();
+  } else {
+    await unloadReturnDislikeExtension();
+  }
+  return true;
+});
+
+ipcMain.handle('get-return-dislike-config', async () => {
+  return config.get('returnDislike', { enabled: true });
+});
+
+
 ipcMain.handle('window-action', (event, action: string) => {
-  if (!mainWindow) return;
+  if (!mainWindow && action !== 'restart') return;
   
   switch (action) {
     case 'minimize':
-      mainWindow.minimize();
+      mainWindow?.minimize();
       break;
     case 'maximize':
-      if (mainWindow.isMaximized()) {
+      if (mainWindow?.isMaximized()) {
         mainWindow.unmaximize();
       } else {
-        mainWindow.maximize();
+        mainWindow?.maximize();
       }
       break;
     case 'close':
-      mainWindow.close();
+      mainWindow?.close();
+      break;
+    case 'restart':
+      app.relaunch();
+      app.exit(0);
       break;
   }
 });
@@ -525,22 +667,29 @@ app.whenReady().then(async () => {
   adBlocker.setSession(session.defaultSession);
   pluginLoader.registerPlugin(adBlocker);
   
+  // Load plugins from directory FIRST (filesystem plugins)
+  await pluginLoader.loadPlugins();
+  
+  // THEN register programmatic plugins (these will override filesystem plugins)
   pluginLoader.registerPlugin(new SponsorBlock('sponsorblock'));
   pluginLoader.registerPlugin(new Downloader('downloader'));
+  pluginLoader.registerPlugin(new Unhook('unhook'));
+
   pluginLoader.registerPlugin(new AlbumColorTheme('album-color-theme'));
   pluginLoader.registerPlugin(new BetterFullscreen('better-fullscreen'));
   pluginLoader.registerPlugin(new Visualizer('visualizer'));
   pluginLoader.registerPlugin(new InAppMenu('in-app-menu'));
+  pluginLoader.registerPlugin(new AppMenuBar('app-menu-bar'));
   pluginLoader.registerPlugin(new DiscordRPCPlugin('discord-rpc'));
   pluginLoader.registerPlugin(new LastFM('lastfm'));
   pluginLoader.registerPlugin(new AudioCompressor('audio-compressor'));
   pluginLoader.registerPlugin(new ExponentialVolume('exponential-volume'));
   
-  // Load plugins from directory
-  await pluginLoader.loadPlugins();
-  
   // Copy default plugins to user data directory
   await copyDefaultPlugins();
+  
+  // Load the official Return YouTube Dislike extension if enabled
+  await loadReturnDislikeExtension();
   
   // Call onAppReady for all enabled plugins
   await pluginLoader.callOnAppReady();

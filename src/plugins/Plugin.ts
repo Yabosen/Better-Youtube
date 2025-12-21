@@ -147,9 +147,9 @@ export abstract class BasePlugin implements Plugin {
       // Execute script directly - webContents.executeJavaScript bypasses Trusted Types
       // No need for Function constructor or script tags
       await window.webContents.executeJavaScript(script, true);
-      console.log(`Injected script for plugin: ${this.metadata.name}`);
+      console.log(`%c[Plugin Loader] Injected script for plugin: ${this.metadata.name}`, 'color: #00aaff; font-weight: bold;');
     } catch (error) {
-      console.error(`Error injecting script for plugin ${this.metadata.name}:`, error);
+      console.error(`%c[Plugin Loader] ERROR injecting script for plugin ${this.metadata.name}:`, 'color: #ff0000; font-weight: bold;', error);
     }
   }
 }
