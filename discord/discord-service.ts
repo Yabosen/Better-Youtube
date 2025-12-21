@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { Client as DiscordClient } from '@xhayper/discord-rpc';
 import { dev } from 'electron-is';
 import { ActivityType } from 'discord-api-types/v10';
@@ -411,6 +412,8 @@ export class DiscordService {
   }
 }
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 import { Client as DiscordClient } from '@xhayper/discord-rpc';
 import { dev } from 'electron-is';
 import { ActivityType } from 'discord-api-types/v10';
@@ -822,4 +825,7 @@ export class DiscordService {
     this.refreshCallbacks = [];
   }
 }
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")

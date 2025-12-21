@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 /**
  * Application ID registered by @th-ch/pear-desktop dev team
  */
@@ -25,6 +26,8 @@ export enum TimerKey {
   DiscordConnectRetry = 'discordConnectRetry', // Timer for Discord connection retries
 }
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 /**
  * Application ID registered by @th-ch/pear-desktop dev team
  */
@@ -50,4 +53,7 @@ export enum TimerKey {
   UpdateTimeout = 'updateTimeout', // Timer for throttled activity updates
   DiscordConnectRetry = 'discordConnectRetry', // Timer for Discord connection retries
 }
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")

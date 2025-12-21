@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { TimerKey } from './constants';
 
 /**
@@ -41,6 +42,8 @@ export class TimerManager {
   }
 }
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 import type { TimerKey } from './constants';
 
 /**
@@ -82,4 +85,7 @@ export class TimerManager {
     this.timers.clear();
   }
 }
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")

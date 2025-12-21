@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import prompt from 'custom-electron-prompt';
 
 import { StatusDisplayType } from 'discord-api-types/v10';
@@ -155,6 +156,8 @@ async function setInactivityTimeout(
   }
 }
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 import prompt from 'custom-electron-prompt';
 
 import { StatusDisplayType } from 'discord-api-types/v10';
@@ -310,4 +313,7 @@ async function setInactivityTimeout(
     setMenuOptions('discord', options);
   }
 }
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")

@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { HANGUL_FILLER } from './constants';
 
 import { APPLICATION_NAME } from '@/i18n';
@@ -77,6 +78,8 @@ export const isSeek = (oldSeconds: number, newSeconds: number): boolean => {
   return Math.abs(newSeconds - oldSeconds) > 2;
 };
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 import { HANGUL_FILLER } from './constants';
 
 import { APPLICATION_NAME } from '@/i18n';
@@ -154,4 +157,7 @@ export const isSeek = (oldSeconds: number, newSeconds: number): boolean => {
   // (allowing for minor discrepancies in reporting)
   return Math.abs(newSeconds - oldSeconds) > 2;
 };
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")

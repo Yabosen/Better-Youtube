@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { StatusDisplayType } from 'discord-api-types/v10';
 
 import { createPlugin } from '@/utils';
@@ -60,6 +61,8 @@ export default createPlugin({
   backend,
 });
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 import { StatusDisplayType } from 'discord-api-types/v10';
 
 import { createPlugin } from '@/utils';
@@ -120,4 +123,7 @@ export default createPlugin({
   menu: onMenu,
   backend,
 });
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")

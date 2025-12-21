@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { app } from 'electron';
 
 import { registerCallback, SongInfoEvent } from '@/providers/song-info';
@@ -71,6 +72,8 @@ export const backend = createBackend<
   },
 });
 =======
+=======
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
 import { app } from 'electron';
 
 import { registerCallback, SongInfoEvent } from '@/providers/song-info';
@@ -142,4 +145,7 @@ export const backend = createBackend<
     }
   },
 });
+<<<<<<< HEAD
+>>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
+=======
 >>>>>>> parent of 799d52e (Revert "sdasfafbabIVYebV 2.1.2")
