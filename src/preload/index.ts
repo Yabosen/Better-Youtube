@@ -15,7 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleReturnDislike: (enabled: boolean) => 
     ipcRenderer.invoke('toggle-return-dislike', enabled),
   getReturnDislikeConfig: () => 
-    ipcRenderer.invoke('get-return-dislike-config')
+    ipcRenderer.invoke('get-return-dislike-config'),
+  invoke: (channel: string, ...args: any[]) => 
+    ipcRenderer.invoke(channel, ...args)
 });
 
 // Type definitions for TypeScript
@@ -30,6 +32,7 @@ declare global {
       windowAction: (action: string) => Promise<void>;
       toggleReturnDislike: (enabled: boolean) => Promise<boolean>;
       getReturnDislikeConfig: () => Promise<{ enabled: boolean }>;
+      invoke: (channel: string, ...args: any[]) => Promise<any>;
     };
   }
 }

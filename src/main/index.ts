@@ -57,7 +57,8 @@ async function createMainWindow() {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: true,
+      backgroundThrottling: false // Prevent throttling when window loses focus
     },
     autoHideMenuBar: true,
     frame: true,
@@ -189,8 +190,18 @@ async function createMainWindow() {
     }
   });
 
-  // Handle navigation
+  // Handle navigation (including YouTube SPA navigation)
   mainWindow.webContents.on('did-navigate', () => {
+    setTimeout(() => {
+      if (mainWindow && pluginLoader) {
+        pluginLoader.callOnRendererLoaded(mainWindow);
+        injectSettingsButton(mainWindow);
+      }
+    }, 1000);
+  });
+
+  // Handle in-page navigation (YouTube uses SPA, so this is important)
+  mainWindow.webContents.on('did-navigate-in-page', () => {
     setTimeout(() => {
       if (mainWindow && pluginLoader) {
         pluginLoader.callOnRendererLoaded(mainWindow);
@@ -529,6 +540,12 @@ ipcMain.handle('set-plugin-config', async (event, pluginName: string, pluginConf
   const plugin = pluginLoader?.getPlugin(pluginName);
   if (plugin) {
     plugin.setConfig(pluginConfig);
+    
+    // Special handling for Discord RPC - reinitialize when config changes
+    if (pluginName === 'discord-rpc' && (plugin as any).onConfigChanged) {
+      await (plugin as any).onConfigChanged();
+    }
+    
     if (mainWindow) {
       pluginLoader?.callOnRendererLoaded(mainWindow);
     }
@@ -594,7 +611,12 @@ async function loadReturnDislikeExtension() {
     }
   } else {
     console.warn('Return YouTube Dislike extension path not found at:', rydPath);
-    console.warn('The extension will not be loaded. To fix this, ensure the extension is built in the extensions directory.');
+    console.warn('The extension will not be loaded.');
+    console.warn('To fix this, run the setup script:');
+    console.warn('  PowerShell: .\\setup-extension.ps1');
+    console.warn('  Or manually clone and build:');
+    console.warn('    git clone https://github.com/Anarios/return-youtube-dislike.git extensions/return-youtube-dislike');
+    console.warn('    cd extensions/return-youtube-dislike && npm install && npm run build:combined');
   }
 }
 

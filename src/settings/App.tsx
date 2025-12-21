@@ -421,6 +421,33 @@ function App() {
           </div>
         );
 
+      case 'discord-rpc':
+        return (
+          <div className="plugin-settings">
+            <p className="plugin-description">Show what you're watching on Discord</p>
+            <div className="setting-item">
+              <label>Discord Client ID (Optional):</label>
+              <input
+                type="text"
+                value={config.clientId || ''}
+                onChange={e => updatePluginConfig(plugin.name, 'clientId', e.target.value || undefined)}
+                placeholder="Leave empty to use default"
+              />
+            </div>
+            <small style={{ color: '#888', display: 'block', marginTop: '8px' }}>
+              A default Client ID is included and works out of the box. You can optionally set your own from{' '}
+              <a 
+                href="https://discord.com/developers/applications" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ color: '#4a9eff' }}
+              >
+                Discord Developer Portal
+              </a>
+            </small>
+          </div>
+        );
+
       default:
         return (
           <div className="plugin-settings">
@@ -490,7 +517,7 @@ function App() {
               {plugins
                 .filter(plugin => {
                   // Only show essential/commonly used plugins
-                  const essentialPlugins = ['adblocker', 'sponsorblock', 'downloader', 'unhook'];
+                  const essentialPlugins = ['adblocker', 'sponsorblock', 'downloader', 'unhook', 'discord-rpc'];
                   return essentialPlugins.includes(plugin.name);
                 })
                 .map(plugin => (
