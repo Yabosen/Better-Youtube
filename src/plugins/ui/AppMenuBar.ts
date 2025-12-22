@@ -326,48 +326,67 @@ export class AppMenuBar extends BasePlugin {
           ], menuItem);
         }
         
-        function showAboutDialog() {
-          const dialog = document.createElement('div');
-          dialog.style.cssText = \`
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #212121;
-            border: 1px solid #303030;
-            border-radius: 8px;
-            padding: 30px;
-            z-index: 1000000;
-            max-width: 400px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-          \`;
-          
-          dialog.innerHTML = \`
-            <h2 style="color: #f1f1f1; margin-bottom: 10px; font-size: 20px;">Better YouTube</h2>
-            <p style="color: #aaa; margin-bottom: 8px; font-size: 14px;">Version 2.0.0</p>
-            <p style="color: #aaa; margin-bottom: 20px; font-size: 14px;">Open Source YouTube Desktop Client with Plugin System</p>
-            <button id="close-about" style="
-              padding: 8px 16px;
-              background: #3ea6ff;
-              color: white;
-              border: none;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 14px;
-            ">Close</button>
-          \`;
-          
-          document.body.appendChild(dialog);
-          
-          dialog.querySelector('#close-about')?.addEventListener('click', () => {
-            dialog.remove();
-          });
-          
-          // Close on outside click
-          dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) {
+function showAboutDialog() {
+          window.electronAPI.getAppVersion().then(version => {
+            const dialog = document.createElement('div');
+            dialog.style.position = 'fixed';
+            dialog.style.top = '50%';
+            dialog.style.left = '50%';
+            dialog.style.transform = 'translate(-50%, -50%)';
+            dialog.style.background = '#212121';
+            dialog.style.border = '1px solid #303030';
+            dialog.style.borderRadius = '8px';
+            dialog.style.padding = '30px';
+            dialog.style.zIndex = '1000000';
+            dialog.style.maxWidth = '400px';
+            dialog.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5)';
+
+            const title = document.createElement('h2');
+            title.textContent = 'Better YouTube';
+            title.style.color = '#f1f1f1';
+            title.style.marginBottom = '10px';
+            title.style.fontSize = '20px';
+
+            const versionP = document.createElement('p');
+            versionP.textContent = 'Version ' + version;
+            versionP.style.color = '#aaa';
+            versionP.style.marginBottom = '8px';
+            versionP.style.fontSize = '14px';
+
+            const description = document.createElement('p');
+            description.textContent = 'Open Source YouTube Desktop Client with Plugin System';
+            description.style.color = '#aaa';
+            description.style.marginBottom = '20px';
+            description.style.fontSize = '14px';
+
+            const closeButton = document.createElement('button');
+            closeButton.id = 'close-about';
+            closeButton.textContent = 'Close';
+            closeButton.style.padding = '8px 16px';
+            closeButton.style.background = '#3ea6ff';
+            closeButton.style.color = 'white';
+            closeButton.style.border = 'none';
+            closeButton.style.borderRadius = '4px';
+            closeButton.style.cursor = 'pointer';
+            closeButton.style.fontSize = '14px';
+
+            dialog.appendChild(title);
+            dialog.appendChild(versionP);
+            dialog.appendChild(description);
+            dialog.appendChild(closeButton);
+            
+            document.body.appendChild(dialog);
+            
+            closeButton.addEventListener('click', () => {
               dialog.remove();
-            }
+            });
+            
+            // Close on outside click
+            dialog.addEventListener('click', (e) => {
+              if (e.target === dialog) {
+                dialog.remove();
+              }
+            });
           });
         }
         

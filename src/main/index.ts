@@ -16,6 +16,7 @@ import {
   LastFM,
   AudioCompressor,
   ExponentialVolume,
+  BrowserUI,
 } from '../plugins';
 import { config } from '../config/Config';
 import { copyDefaultPlugins } from './copy-plugins';
@@ -48,7 +49,7 @@ async function createMainWindow() {
       iconPath = pngPath;
     }
   }
-  
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -57,11 +58,12 @@ async function createMainWindow() {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true,
+      webSecurity: false, // Allow cross-origin requests for plugins
       backgroundThrottling: false // Prevent throttling when window loses focus
     },
     autoHideMenuBar: true,
-    frame: true,
+    frame: false, // Frameless to allow custom title bar
+    titleBarStyle: 'hidden',
     show: false
   });
 
@@ -95,7 +97,7 @@ async function createMainWindow() {
           }
         }
       })();
-    `, { worldId: 'main' } as any).catch(() => {});
+    `, { worldId: 'main' } as any).catch(() => { });
   });
 
   // Open DevTools only in development
@@ -144,7 +146,7 @@ async function createMainWindow() {
         } catch(e) {}
       }
     })();
-  `, true).catch(() => {});
+  `, true).catch(() => { });
 
   // Load YouTube
   console.log('Loading YouTube...');
@@ -181,12 +183,11 @@ async function createMainWindow() {
             console.warn('Trusted Types setup error:', e);
           }
         })();
-      `, true).catch(() => {});
-      
+      `, true).catch(() => { });
+
       if (pluginLoader) {
         pluginLoader.callOnRendererLoaded(mainWindow);
       }
-      injectSettingsButton(mainWindow);
     }
   });
 
@@ -195,7 +196,6 @@ async function createMainWindow() {
     setTimeout(() => {
       if (mainWindow && pluginLoader) {
         pluginLoader.callOnRendererLoaded(mainWindow);
-        injectSettingsButton(mainWindow);
       }
     }, 1000);
   });
@@ -205,7 +205,6 @@ async function createMainWindow() {
     setTimeout(() => {
       if (mainWindow && pluginLoader) {
         pluginLoader.callOnRendererLoaded(mainWindow);
-        injectSettingsButton(mainWindow);
       }
     }, 1000);
   });
@@ -247,7 +246,7 @@ function createSettingsWindow() {
       iconPath = pngPath;
     }
   }
-  
+
   settingsWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -270,7 +269,7 @@ function createSettingsWindow() {
 
   // Determine if we should use dev server or built files
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-  
+
   // Get the correct path for settings.html
   let settingsPath: string;
   if (app.isPackaged) {
@@ -280,14 +279,14 @@ function createSettingsWindow() {
     // In dev, check both dist and root
     settingsPath = join(__dirname, '../../dist/settings.html');
   }
-  
+
   // Track if we've tried the fallback to avoid infinite loops
   let triedFallback = false;
-  
+
   // Show error message if settings can't load
   const showSettingsError = () => {
     if (!settingsWindow || settingsWindow.isDestroyed()) return;
-    
+
     const errorHTML = `
       <!DOCTYPE html>
       <html>
@@ -334,19 +333,19 @@ function createSettingsWindow() {
       </body>
       </html>
     `;
-    
+
     settingsWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHTML)}`).catch(console.error);
   };
-  
+
   // Handle failed loads and fallback to built file
   settingsWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error('Settings window failed to load:', errorCode, errorDescription, validatedURL);
-    
+
     // Only handle connection refused errors for dev server
     if (isDev && errorCode === -102 && validatedURL.includes('localhost:5173') && !triedFallback) {
       triedFallback = true;
       console.warn('Dev server not available, trying built file...');
-      
+
       if (settingsWindow && !settingsWindow.isDestroyed()) {
         if (existsSync(settingsPath)) {
           settingsWindow.loadFile(settingsPath).catch(err2 => {
@@ -365,14 +364,14 @@ function createSettingsWindow() {
         join(app.getAppPath(), 'dist', 'settings.html'),
         join(app.getAppPath(), 'settings.html'),
       ];
-      
+
       let pathIndex = 0;
       const tryNextPath = () => {
         if (pathIndex >= pathsToTry.length || !settingsWindow || settingsWindow.isDestroyed()) {
           showSettingsError();
           return;
         }
-        
+
         const path = pathsToTry[pathIndex];
         if (existsSync(path)) {
           settingsWindow.loadFile(path).catch(() => {
@@ -390,13 +389,13 @@ function createSettingsWindow() {
       showSettingsError();
     }
   });
-  
+
   // Function to load settings with fallbacks
   const loadSettings = () => {
     if (!settingsWindow || settingsWindow.isDestroyed()) return;
-    
+
     triedFallback = false;
-    
+
     if (isDev) {
       // Try dev server first - if it fails, did-fail-load will handle fallback
       settingsWindow.loadURL('http://localhost:5173/settings.html').catch(() => {
@@ -415,14 +414,14 @@ function createSettingsWindow() {
           join(app.getAppPath(), 'dist', 'settings.html'),
           join(app.getAppPath(), 'settings.html'),
         ];
-        
+
         let pathIndex = 0;
         const tryNextPath = () => {
           if (pathIndex >= pathsToTry.length || !settingsWindow || settingsWindow.isDestroyed()) {
             showSettingsError();
             return;
           }
-          
+
           const path = pathsToTry[pathIndex];
           if (existsSync(path)) {
             settingsWindow.loadFile(path).catch(() => {
@@ -438,7 +437,7 @@ function createSettingsWindow() {
       }
     }
   };
-  
+
   // Load settings
   loadSettings();
 
@@ -517,13 +516,13 @@ ipcMain.handle('get-plugins', async () => {
 
 ipcMain.handle('toggle-plugin', async (event, pluginName: string, enabled: boolean) => {
   if (!pluginLoader) return false;
-  
+
   if (enabled) {
     pluginLoader.enablePlugin(pluginName);
   } else {
     pluginLoader.disablePlugin(pluginName);
   }
-  
+
   // Reload renderer plugins if main window exists
   if (mainWindow) {
     pluginLoader.callOnRendererLoaded(mainWindow);
@@ -540,12 +539,12 @@ ipcMain.handle('set-plugin-config', async (event, pluginName: string, pluginConf
   const plugin = pluginLoader?.getPlugin(pluginName);
   if (plugin) {
     plugin.setConfig(pluginConfig);
-    
+
     // Special handling for Discord RPC - reinitialize when config changes
     if (pluginName === 'discord-rpc' && (plugin as any).onConfigChanged) {
       await (plugin as any).onConfigChanged();
     }
-    
+
     if (mainWindow) {
       pluginLoader?.callOnRendererLoaded(mainWindow);
     }
@@ -579,23 +578,23 @@ async function loadReturnDislikeExtension() {
       join(__dirname, '..', 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome'),
       join(app.getAppPath(), 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome'),
     ];
-    
+
     // Find the first existing path
     rydPath = possiblePaths.find(path => existsSync(path)) || possiblePaths[0];
   } else {
     // In development, use the cloned extension
     rydPath = join(__dirname, '..', '..', 'extensions', 'return-youtube-dislike', 'Extensions', 'combined', 'dist', 'chrome');
   }
-  
+
   console.log('[DEBUG] Extension path:', rydPath);
   console.log('[DEBUG] Does extension path exist?', existsSync(rydPath));
-  
+
   if (existsSync(rydPath)) {
     try {
       const extension = await session.defaultSession.loadExtension(rydPath, { allowFileAccess: true });
       returnDislikeExtensionId = extension.id;
       console.log('Successfully loaded Return YouTube Dislike extension:', extension.name, extension.version);
-      
+
       // Ensure API requests are not blocked
       session.defaultSession.webRequest.onBeforeRequest(
         {
@@ -603,6 +602,7 @@ async function loadReturnDislikeExtension() {
         },
         (details, callback) => {
           // Allow all requests to the API
+          console.log('[RYD] Intercepted request to:', details.url);
           callback({});
         }
       );
@@ -654,7 +654,7 @@ ipcMain.handle('get-return-dislike-config', async () => {
 
 ipcMain.handle('window-action', (event, action: string) => {
   if (!mainWindow && action !== 'restart') return;
-  
+
   switch (action) {
     case 'minimize':
       mainWindow?.minimize();
@@ -683,15 +683,15 @@ app.whenReady().then(async () => {
   const pluginsDir = join(userDataPath, 'plugins');
   pluginLoader = new PluginLoader(pluginsDir);
   pluginLoader.setSession(session.defaultSession);
-  
+
   // Register all plugins
   const adBlocker = new AdBlocker('adblocker');
   adBlocker.setSession(session.defaultSession);
   pluginLoader.registerPlugin(adBlocker);
-  
+
   // Load plugins from directory FIRST (filesystem plugins)
   await pluginLoader.loadPlugins();
-  
+
   // THEN register programmatic plugins (these will override filesystem plugins)
   pluginLoader.registerPlugin(new SponsorBlock('sponsorblock'));
   pluginLoader.registerPlugin(new Downloader('downloader'));
@@ -702,20 +702,21 @@ app.whenReady().then(async () => {
   pluginLoader.registerPlugin(new Visualizer('visualizer'));
   pluginLoader.registerPlugin(new InAppMenu('in-app-menu'));
   pluginLoader.registerPlugin(new AppMenuBar('app-menu-bar'));
+  pluginLoader.registerPlugin(new BrowserUI('browser-ui'));
   pluginLoader.registerPlugin(new DiscordRPCPlugin('discord-rpc'));
   pluginLoader.registerPlugin(new LastFM('lastfm'));
   pluginLoader.registerPlugin(new AudioCompressor('audio-compressor'));
   pluginLoader.registerPlugin(new ExponentialVolume('exponential-volume'));
-  
+
   // Copy default plugins to user data directory
   await copyDefaultPlugins();
-  
+
   // Load the official Return YouTube Dislike extension if enabled
   await loadReturnDislikeExtension();
-  
+
   // Call onAppReady for all enabled plugins
   await pluginLoader.callOnAppReady();
-  
+
   // Create main window
   createMainWindow();
 
@@ -736,7 +737,7 @@ app.on('window-all-closed', () => {
       }
     }
   }
-  
+
   if (process.platform !== 'darwin') {
     app.quit();
   }

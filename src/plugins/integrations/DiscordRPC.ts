@@ -13,7 +13,7 @@ export class DiscordRPCPlugin extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'discord-rpc',
     description: 'Show what you\'re watching on Discord',
-    version: '2.1.1',
+    version: '2.1.2',
   };
 
   private discordService: DiscordService | null = null;
@@ -21,13 +21,13 @@ export class DiscordRPCPlugin extends BasePlugin {
 
   public async onAppReady(): Promise<void> {
     console.log('[DiscordRPC] onAppReady called, enabled:', this.isEnabled());
-    
+
     // Register IPC handler for video updates from renderer (only once)
     if (!ipcMain.listenerCount('discord-rpc-update-video')) {
       console.log('[DiscordRPC] Registering IPC handlers');
-      
+
       const pluginInstance = this;
-      
+
       ipcMain.handle('discord-rpc-update-video', (_event, videoData: any) => {
         if (pluginInstance.isEnabled() && pluginInstance.discordService) {
           // Convert video data to VideoInfo format
@@ -63,7 +63,7 @@ export class DiscordRPCPlugin extends BasePlugin {
 
   public async onWindowCreated(window: BrowserWindow): Promise<void> {
     this.mainWindow = window;
-    
+
     if (this.isEnabled()) {
       await this.initializeService();
     }
@@ -109,15 +109,15 @@ export class DiscordRPCPlugin extends BasePlugin {
     const script = this.getRendererScript();
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       const url = window.webContents.getURL();
       if (!url.includes('youtube.com')) {
         return;
       }
-      
+
       await window.webContents.executeJavaScript(script, true);
       console.log('[DiscordRPC] ✅ Renderer script injected successfully');
-      
+
       // Re-inject after delay to catch late navigation
       setTimeout(async () => {
         try {
@@ -136,7 +136,7 @@ export class DiscordRPCPlugin extends BasePlugin {
 
   private getRendererScript(): string {
     const configJson = JSON.stringify(this.getConfig()).replace(/`/g, '\\`').replace(/\$/g, '\\$');
-    
+
     return `
     (function() {
       if (window.__discordRPCInjected) {
@@ -345,9 +345,9 @@ export class DiscordRPCPlugin extends BasePlugin {
         hideDurationLeft: config.hideDurationLeft ?? false,
         statusDisplayType: config.statusDisplayType ?? StatusDisplayType.Details,
       };
-      
+
       this.discordService.onConfigChange(discordConfig);
-      
+
       const currentlyConnected = this.discordService.isConnected();
       if (discordConfig.enabled && !currentlyConnected) {
         this.discordService.connect(!discordConfig.autoReconnect);

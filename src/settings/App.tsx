@@ -20,31 +20,26 @@ function App() {
   const [pluginConfigs, setPluginConfigs] = useState<Record<string, PluginConfig>>({});
   const [returnDislikeEnabled, setReturnDislikeEnabled] = useState(true);
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('plugins');
-  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const [version, setVersion] = useState('');
 
   useEffect(() => {
     loadPlugins();
-    checkFullscreen();
-    const interval = setInterval(checkFullscreen, 500);
-    return () => clearInterval(interval);
+    window.electronAPI.getAppVersion().then(setVersion);
   }, []);
-
-  const checkFullscreen = () => {
-    setIsFullscreen(!!document.fullscreenElement);
-  };
 
   const loadPlugins = async () => {
     try {
       const pluginList = await window.electronAPI.getPlugins();
       setPlugins(pluginList);
-      
+
       // Load configs for all plugins
       const configs: Record<string, PluginConfig> = {};
       for (const plugin of pluginList) {
         configs[plugin.name] = await window.electronAPI.getPluginConfig(plugin.name);
       }
       setPluginConfigs(configs);
-      
+
       // Load Return YouTube Dislike config
       const rydConfig = await window.electronAPI.getReturnDislikeConfig();
       setReturnDislikeEnabled(rydConfig.enabled !== false);
@@ -92,7 +87,7 @@ function App() {
 
   const renderPluginSettings = (plugin: Plugin) => {
     const config = pluginConfigs[plugin.name] || {};
-    
+
     switch (plugin.name) {
       case 'adblocker':
         return (
@@ -436,9 +431,9 @@ function App() {
             </div>
             <small style={{ color: '#888', display: 'block', marginTop: '8px' }}>
               A default Client ID is included and works out of the box. You can optionally set your own from{' '}
-              <a 
-                href="https://discord.com/developers/applications" 
-                target="_blank" 
+              <a
+                href="https://discord.com/developers/applications"
+                target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: '#4a9eff' }}
               >
@@ -516,44 +511,44 @@ function App() {
 
               {plugins
                 .filter(plugin => {
-                  // Only show essential/commonly used plugins
-                  const essentialPlugins = ['adblocker', 'sponsorblock', 'downloader', 'unhook', 'discord-rpc'];
+                  // Only show essential/commonly used plugins (bad-ui is secret!)
+                  const essentialPlugins = ['adblocker', 'sponsorblock', 'downloader', 'unhook', 'discord-rpc', 'browser-ui'];
                   return essentialPlugins.includes(plugin.name);
                 })
                 .map(plugin => (
-                <div
-                  key={plugin.name}
-                  className={`plugin-card ${selectedPlugin === plugin.name ? 'active' : ''}`}
-                  onClick={() => setSelectedPlugin(selectedPlugin === plugin.name ? null : plugin.name)}
-                >
-                  <div className="plugin-card-header">
-                    <span className="plugin-card-name">
-                      {plugin.name.split('-').map(word => 
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')}
-                    </span>
-                    <label className="toggle-switch" onClick={e => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={plugin.enabled}
-                        onChange={e => {
-                          e.stopPropagation();
-                          togglePlugin(plugin.name, e.target.checked);
-                        }}
-                      />
-                      <span className="slider"></span>
-                    </label>
-                  </div>
-                  {plugin.description && (
-                    <p className="plugin-card-desc">{plugin.description}</p>
-                  )}
-                  {selectedPlugin === plugin.name && (
-                    <div className="plugin-card-settings">
-                      {renderPluginSettings(plugin)}
+                  <div
+                    key={plugin.name}
+                    className={`plugin-card ${selectedPlugin === plugin.name ? 'active' : ''}`}
+                    onClick={() => setSelectedPlugin(selectedPlugin === plugin.name ? null : plugin.name)}
+                  >
+                    <div className="plugin-card-header">
+                      <span className="plugin-card-name">
+                        {plugin.name.split('-').map(word =>
+                          word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ')}
+                      </span>
+                      <label className="toggle-switch" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={plugin.enabled}
+                          onChange={e => {
+                            e.stopPropagation();
+                            togglePlugin(plugin.name, e.target.checked);
+                          }}
+                        />
+                        <span className="slider"></span>
+                      </label>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {plugin.description && (
+                      <p className="plugin-card-desc">{plugin.description}</p>
+                    )}
+                    {selectedPlugin === plugin.name && (
+                      <div className="plugin-card-settings">
+                        {renderPluginSettings(plugin)}
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           </div>
         );
@@ -564,14 +559,23 @@ function App() {
           <div className="menu-content">
             <h2>About</h2>
             <div className="about-content">
-              <h3>Better YouTube</h3>
-              <p>Version 2.0.0</p>
-              <p>Open Source YouTube Desktop Client with Plugin System</p>
-              <p style={{ marginTop: '20px' }}>
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer" style={{ color: '#4a9eff' }}>
+              <div className="about-header">
+                <h3>Better YouTube</h3>
+                <p className="version">Version {version}</p>
+              </div>
+              <p className="about-description">
+                Open Source YouTube Desktop Client with Plugin System
+              </p>
+              <div className="about-links">
+                <a
+                  href="https://github.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="github-link"
+                >
                   GitHub Repository
                 </a>
-              </p>
+              </div>
             </div>
           </div>
         );
@@ -584,29 +588,33 @@ function App() {
   if (loading) {
     return (
       <div className="app">
-        <div className="loading">Loading plugins...</div>
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <p>Loading plugins...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="app">
-      {!isFullscreen && (
-        <div className="menu-bar">
-          <div 
-            className={`menu-item ${activeMenuTab === 'plugins' ? 'active' : ''}`}
-            onClick={() => setActiveMenuTab('plugins')}
-          >
-            Plugins
-          </div>
-          <div 
-            className={`menu-item ${activeMenuTab === 'about' ? 'active' : ''}`}
-            onClick={() => setActiveMenuTab('about')}
-          >
-            About
-          </div>
-        </div>
-      )}
+      <div className="title-bar">
+        <div className="title-bar-title">Better YouTube - Settings</div>
+      </div>
+      <div className="menu-bar">
+        <button
+          className={`menu-tab ${activeMenuTab === 'plugins' ? 'active' : ''}`}
+          onClick={() => setActiveMenuTab('plugins')}
+        >
+          Plugins
+        </button>
+        <button
+          className={`menu-tab ${activeMenuTab === 'about' ? 'active' : ''}`}
+          onClick={() => setActiveMenuTab('about')}
+        >
+          About
+        </button>
+      </div>
       <div className="content-area">
         {renderMenuContent()}
       </div>
