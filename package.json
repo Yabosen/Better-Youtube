@@ -1,6 +1,6 @@
 {
   "name": "better-youtube",
-  "version": "2.2.1-Berkut",
+  "version": "2.2.1pz-Berkut",
   "description": "Open Source YouTube Desktop Client with Plugin System",
   "main": "dist/main/index.js",
   "homepage": "./",

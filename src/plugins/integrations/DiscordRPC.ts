@@ -13,7 +13,7 @@ export class DiscordRPCPlugin extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'discord-rpc',
     description: 'Show what you\'re watching on Discord',
-    version: '2.1.2',
+    version: '2.2.1pz-Berkut',
   };
 
   private discordService: DiscordService | null = null;

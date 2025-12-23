@@ -4,19 +4,21 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   openSettings: () => ipcRenderer.invoke('open-settings'),
   getPlugins: () => ipcRenderer.invoke('get-plugins'),
-  togglePlugin: (pluginName: string, enabled: boolean) => 
+  togglePlugin: (pluginName: string, enabled: boolean) =>
     ipcRenderer.invoke('toggle-plugin', pluginName, enabled),
-  getPluginConfig: (pluginName: string) => 
+  getPluginConfig: (pluginName: string) =>
     ipcRenderer.invoke('get-plugin-config', pluginName),
-  setPluginConfig: (pluginName: string, config: any) => 
+  setPluginConfig: (pluginName: string, config: any) =>
     ipcRenderer.invoke('set-plugin-config', pluginName, config),
-  windowAction: (action: string) => 
+  windowAction: (action: string) =>
     ipcRenderer.invoke('window-action', action),
-  toggleReturnDislike: (enabled: boolean) => 
+  toggleReturnDislike: (enabled: boolean) =>
     ipcRenderer.invoke('toggle-return-dislike', enabled),
-  getReturnDislikeConfig: () => 
+  getReturnDislikeConfig: () =>
     ipcRenderer.invoke('get-return-dislike-config'),
-  invoke: (channel: string, ...args: any[]) => 
+  getAppVersion: () =>
+    ipcRenderer.invoke('get-app-version'),
+  invoke: (channel: string, ...args: any[]) =>
     ipcRenderer.invoke(channel, ...args)
 });
 
@@ -32,6 +34,7 @@ declare global {
       windowAction: (action: string) => Promise<void>;
       toggleReturnDislike: (enabled: boolean) => Promise<boolean>;
       getReturnDislikeConfig: () => Promise<{ enabled: boolean }>;
+      getAppVersion: () => Promise<string>;
       invoke: (channel: string, ...args: any[]) => Promise<any>;
     };
   }
