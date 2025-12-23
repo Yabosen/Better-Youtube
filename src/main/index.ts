@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { createConnection } from 'net';
 import {
   PluginLoader,
   AdBlocker,
@@ -27,8 +28,28 @@ let settingsWindow: BrowserWindow | null = null;
 let pluginLoader: PluginLoader | null = null;
 let returnDislikeExtensionId: string | null = null;
 
+const isDev = !app.isPackaged;
+
+function checkDevServer(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection(port, 'localhost');
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('error', () => {
+      resolve(false);
+    });
+    socket.setTimeout(200); // Fast timeout
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
 async function createMainWindow() {
-  console.log('--- Operation Berkut - Version 2.2.1-pzX1 Loaded ---');
+  console.log('--- Operation Berkut - Version 2.2.2-E-Berkut Loaded ---');
   // Icon path - try .ico first, then .png
   let iconPath: string | undefined;
   if (app.isPackaged) {
@@ -226,9 +247,12 @@ async function createMainWindow() {
   }
 }
 
-function createSettingsWindow() {
+async function createSettingsWindow(show = true) {
   if (settingsWindow) {
-    settingsWindow.focus();
+    if (show) {
+      settingsWindow.show();
+      settingsWindow.focus();
+    }
     return;
   }
 
@@ -264,16 +288,19 @@ function createSettingsWindow() {
       preload: join(__dirname, '../preload/index.js')
     },
     autoHideMenuBar: true,
-    show: false // Don't show until ready
+    show: false // Hidden until ready or requested
   });
 
-  // Show window when ready
+  // Show window ONLY if show is true
   settingsWindow.once('ready-to-show', () => {
-    settingsWindow?.show();
+    if (show) {
+      settingsWindow?.show();
+    }
   });
 
   // Determine if we should use dev server or built files
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  // Only use dev server if port 5173 is reachable
+  const devServerActive = isDev && await checkDevServer(5173);
 
   // Get the correct path for settings.html
   let settingsPath: string;
@@ -401,11 +428,10 @@ function createSettingsWindow() {
 
     triedFallback = false;
 
-    if (isDev) {
-      // Try dev server first - if it fails, did-fail-load will handle fallback
+    if (devServerActive) {
+      // Use dev server
       settingsWindow.loadURL('http://localhost:5173/settings.html').catch(() => {
-        // This catch is for immediate errors, but connection refused happens async
-        // The did-fail-load handler will catch it
+        // Fallback handled by did-fail-load or initial check
       });
     } else {
       // Production: try primary path first
@@ -660,8 +686,19 @@ ipcMain.handle('get-return-dislike-config', async () => {
   return config.get('returnDislike', { enabled: true });
 });
 
-ipcMain.handle('get-app-version', async () => {
-  return app.getVersion();
+ipcMain.handle('navigate', (_event, action: 'back' | 'forward' | 'refresh') => {
+  if (!mainWindow) return;
+  switch (action) {
+    case 'back':
+      if (mainWindow.webContents.canGoBack()) mainWindow.webContents.goBack();
+      break;
+    case 'forward':
+      if (mainWindow.webContents.canGoForward()) mainWindow.webContents.goForward();
+      break;
+    case 'refresh':
+      mainWindow.webContents.reload();
+      break;
+  }
 });
 
 
@@ -766,8 +803,8 @@ app.whenReady().then(async () => {
   // Create main window
   await createMainWindow();
 
-  // Initialize auto-updater
-  setupAutoUpdater();
+  // Pre-create settings window in background for instant opening
+  createSettingsWindow(false);
 
   // Check for updates on startup (after a short delay to ensure window is ready)
   setTimeout(() => {

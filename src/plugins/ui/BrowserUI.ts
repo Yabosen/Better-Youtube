@@ -134,6 +134,11 @@ export class BrowserUI extends BasePlugin {
             #browser-ui-titlebar .nav-btn:hover svg {
               transform: scale(1.1) !important;
             }
+
+            #browser-ui-titlebar .nav-btn:active svg {
+              transform: scale(0.9) !important;
+              opacity: 0.7 !important;
+            }
             
             #browser-ui-titlebar .nav-btn.settings-btn {
               background: rgba(138, 43, 226, 0.18) !important;
@@ -352,21 +357,45 @@ export class BrowserUI extends BasePlugin {
           backBtn.className = 'nav-btn';
           backBtn.title = 'Go back';
           backBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
-          backBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.history.back(); };
+          backBtn.onclick = (e) => { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            if (window.electronAPI && window.electronAPI.navigate) {
+              window.electronAPI.navigate('back');
+            } else {
+              window.history.back();
+            }
+          };
           
           // Forward button
           const forwardBtn = document.createElement('button');
           forwardBtn.className = 'nav-btn';
           forwardBtn.title = 'Go forward';
           forwardBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
-          forwardBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.history.forward(); };
+          forwardBtn.onclick = (e) => { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            if (window.electronAPI && window.electronAPI.navigate) {
+              window.electronAPI.navigate('forward');
+            } else {
+              window.history.forward();
+            }
+          };
           
           // Refresh button
           const refreshBtn = document.createElement('button');
           refreshBtn.className = 'nav-btn';
           refreshBtn.title = 'Refresh';
           refreshBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>';
-          refreshBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window.location.reload(); };
+          refreshBtn.onclick = (e) => { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            if (window.electronAPI && window.electronAPI.navigate) {
+              window.electronAPI.navigate('refresh');
+            } else {
+              window.location.reload();
+            }
+          };
           
           navSection.appendChild(backBtn);
           navSection.appendChild(forwardBtn);

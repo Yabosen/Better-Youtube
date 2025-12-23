@@ -113,19 +113,6 @@ function App() {
     }
   };
 
-  const checkForUpdates = async () => {
-    setUpdateStatus({ status: 'checking' });
-    try {
-      await window.electronAPI.checkForUpdates();
-    } catch (error: any) {
-      setUpdateStatus({ status: 'error', error: error.message });
-    }
-  };
-
-  const quitAndInstall = () => {
-    window.electronAPI.quitAndInstall();
-  };
-
   const checkForUpdates = () => {
     setUpdateStatus({ type: 'checking' });
     window.electronAPI.checkForUpdates();
@@ -650,60 +637,6 @@ function App() {
                 >
                   GitHub Repository
                 </a>
-              </div>
-
-              <div className="update-section" style={{ marginTop: '20px', padding: '15px', background: '#2a2a2a', borderRadius: '8px' }}>
-                <h4 style={{ margin: '0 0 10px 0' }}>Software Update</h4>
-
-                {updateStatus.status === 'idle' && (
-                  <button className="settings-button" onClick={checkForUpdates} style={{ padding: '8px 16px', background: '#3ea6ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                    Check for Updates
-                  </button>
-                )}
-
-                {updateStatus.status === 'checking' && (
-                  <p style={{ color: '#aaa', margin: '0' }}>Checking for updates...</p>
-                )}
-
-                {updateStatus.status === 'available' && (
-                  <p style={{ color: '#4CAF50', margin: '0' }}>Version {updateStatus.version} is available and downloading...</p>
-                )}
-
-                {updateStatus.status === 'not-available' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <p style={{ color: '#aaa', margin: '0' }}>Better YouTube is up to date.</p>
-                    <button className="settings-button secondary" onClick={checkForUpdates} style={{ padding: '4px 8px', background: 'transparent', color: '#3ea6ff', border: '1px solid #3ea6ff', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
-                      Check Again
-                    </button>
-                  </div>
-                )}
-
-                {updateStatus.status === 'downloading' && (
-                  <div style={{ marginTop: '10px' }}>
-                    <p style={{ color: '#aaa', marginBottom: '5px' }}>Downloading update... {Math.round(updateStatus.percent || 0)}%</p>
-                    <div style={{ width: '100%', height: '4px', background: '#444', borderRadius: '2px' }}>
-                      <div style={{ width: `${updateStatus.percent || 0}%`, height: '100%', background: '#3ea6ff', borderRadius: '2px', transition: 'width 0.3s' }}></div>
-                    </div>
-                  </div>
-                )}
-
-                {updateStatus.status === 'downloaded' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <p style={{ color: '#4CAF50', margin: '0' }}>Update ready to install!</p>
-                    <button className="settings-button" onClick={quitAndInstall} style={{ padding: '8px 16px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                      Install & Restart
-                    </button>
-                  </div>
-                )}
-
-                {updateStatus.status === 'error' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <p style={{ color: '#ff4444', margin: '10px 0' }}>Error checking for updates: {updateStatus.error}</p>
-                    <button className="settings-button" onClick={checkForUpdates} style={{ padding: '8px 16px', background: '#3ea6ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', width: 'fit-content' }}>
-                      Try Again
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>
