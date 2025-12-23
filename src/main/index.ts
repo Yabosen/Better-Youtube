@@ -28,6 +28,7 @@ let pluginLoader: PluginLoader | null = null;
 let returnDislikeExtensionId: string | null = null;
 
 async function createMainWindow() {
+  console.log('--- Operation Berkut - Version 2.2.1-pzX1 Loaded ---');
   // Icon path - try .ico first, then .png
   let iconPath: string | undefined;
   if (app.isPackaged) {
@@ -659,6 +660,10 @@ ipcMain.handle('get-return-dislike-config', async () => {
   return config.get('returnDislike', { enabled: true });
 });
 
+ipcMain.handle('get-app-version', async () => {
+  return app.getVersion();
+});
+
 
 ipcMain.handle('window-action', (_event, action: string) => {
   if (!mainWindow && action !== 'restart') return;
@@ -759,7 +764,10 @@ app.whenReady().then(async () => {
   await pluginLoader.callOnAppReady();
 
   // Create main window
-  createMainWindow();
+  await createMainWindow();
+
+  // Initialize auto-updater
+  setupAutoUpdater();
 
   // Check for updates on startup (after a short delay to ensure window is ready)
   setTimeout(() => {

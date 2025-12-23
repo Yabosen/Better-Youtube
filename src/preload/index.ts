@@ -41,6 +41,10 @@ declare global {
       windowAction: (action: string) => Promise<void>;
       toggleReturnDislike: (enabled: boolean) => Promise<boolean>;
       getReturnDislikeConfig: () => Promise<{ enabled: boolean }>;
+      getAppVersion: () => Promise<string>;
+      checkForUpdates: () => Promise<any>;
+      quitAndInstall: () => Promise<void>;
+      onUpdateStatus: (callback: (data: any) => void) => () => void;
       invoke: (channel: string, ...args: any[]) => Promise<any>;
       getAppVersion: () => Promise<string>;
       checkForUpdates: () => Promise<void>;

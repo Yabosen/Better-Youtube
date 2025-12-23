@@ -8,6 +8,10 @@
   },
   "main": "dist/main/index.js",
   "homepage": "./",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Yabosen/Better-Youtube.git"
+  },
   "scripts": {
     "dev": "vite",
     "build:main": "tsc -p tsconfig.main.json",
@@ -32,6 +36,7 @@
     "cross-fetch": "^4.0.0",
     "discord-api-types": "^0.38.37",
     "discord-rpc": "^4.0.1",
+    "electron-log": "^5.4.3",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.6.2",
     "react": "^18.2.0",
@@ -89,6 +94,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Yabosen",
+      "repo": "Better-Youtube"
     }
   }
 }
