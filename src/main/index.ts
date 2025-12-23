@@ -651,6 +651,10 @@ ipcMain.handle('get-return-dislike-config', async () => {
   return config.get('returnDislike', { enabled: true });
 });
 
+ipcMain.handle('get-app-version', async () => {
+  return app.getVersion();
+});
+
 
 ipcMain.handle('window-action', (event, action: string) => {
   if (!mainWindow && action !== 'restart') return;
