@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 
 interface Plugin {
@@ -22,10 +22,39 @@ function App() {
   const [activeMenuTab, setActiveMenuTab] = useState<MenuTab>('plugins');
 
   const [version, setVersion] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<{
+    type: string;
+    message?: string;
+    progress?: number;
+    downloaded?: boolean;
+  }>({ type: 'idle' });
 
   useEffect(() => {
     loadPlugins();
     window.electronAPI.getAppVersion().then(setVersion);
+
+    // Listen for update status
+    window.electronAPI.onUpdateStatus((status) => {
+      console.log('Update status:', status);
+      switch (status.type) {
+        case 'update-status':
+          if (status.data === 'checking') setUpdateStatus({ type: 'checking' });
+          if (status.data === 'up-to-date') setUpdateStatus({ type: 'idle', message: 'App is up to date' });
+          break;
+        case 'update-available':
+          setUpdateStatus({ type: 'available', message: `Update available: ${status.data.version}` });
+          break;
+        case 'update-progress':
+          setUpdateStatus({ type: 'downloading', progress: status.data.percent });
+          break;
+        case 'update-downloaded':
+          setUpdateStatus({ type: 'downloaded', message: 'Update ready to install' });
+          break;
+        case 'update-error':
+          setUpdateStatus({ type: 'error', message: `Error: ${status.data}` });
+          break;
+      }
+    });
   }, []);
 
   const loadPlugins = async () => {
@@ -85,6 +114,16 @@ function App() {
   };
 
 
+  const checkForUpdates = () => {
+    setUpdateStatus({ type: 'checking' });
+    window.electronAPI.checkForUpdates();
+  };
+
+  const installUpdate = () => {
+    window.electronAPI.installUpdate();
+  };
+
+
   const renderPluginSettings = (plugin: Plugin) => {
     const config = pluginConfigs[plugin.name] || {};
 
@@ -132,7 +171,7 @@ function App() {
                         const categories = config.categories || [];
                         const newCategories = e.target.checked
                           ? [...categories, cat]
-                          : categories.filter(c => c !== cat);
+                          : categories.filter((c: string) => c !== cat);
                         updatePluginConfig(plugin.name, 'categories', newCategories);
                       }}
                     />
@@ -563,12 +602,36 @@ function App() {
                 <h3>Better YouTube</h3>
                 <p className="version">Version {version}</p>
               </div>
+
+              <div className="update-section">
+                {updateStatus.type === 'downloaded' ? (
+                  <button className="update-btn ready" onClick={installUpdate}>
+                    Restart to Install Update
+                  </button>
+                ) : (
+                  <button
+                    className="update-btn"
+                    onClick={checkForUpdates}
+                    disabled={updateStatus.type === 'checking' || updateStatus.type === 'downloading'}
+                  >
+                    {updateStatus.type === 'checking' ? 'Checking...' :
+                      updateStatus.type === 'downloading' ? `Downloading (${updateStatus.progress?.toFixed(0)}%)` :
+                        'Check for Updates'}
+                  </button>
+                )}
+                {updateStatus.message && (
+                  <p className={`update-status-msg ${updateStatus.type}`}>
+                    {updateStatus.message}
+                  </p>
+                )}
+              </div>
+
               <p className="about-description">
                 Open Source YouTube Desktop Client with Plugin System
               </p>
               <div className="about-links">
                 <a
-                  href="https://github.com"
+                  href="https://github.com/Yabosen/Better-Youtube"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="github-link"

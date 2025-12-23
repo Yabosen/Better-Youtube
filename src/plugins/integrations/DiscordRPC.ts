@@ -13,7 +13,7 @@ export class DiscordRPCPlugin extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'discord-rpc',
     description: 'Show what you\'re watching on Discord',
-    version: '2.1.2',
+    version: '2.2.2-E-Berkut',
   };
 
   private discordService: DiscordService | null = null;
@@ -117,18 +117,6 @@ export class DiscordRPCPlugin extends BasePlugin {
 
       await window.webContents.executeJavaScript(script, true);
       console.log('[DiscordRPC] ✅ Renderer script injected successfully');
-
-      // Re-inject after delay to catch late navigation
-      setTimeout(async () => {
-        try {
-          const currentUrl = window.webContents.getURL();
-          if (currentUrl.includes('youtube.com')) {
-            await window.webContents.executeJavaScript(script, true);
-          }
-        } catch (err) {
-          console.error('[DiscordRPC] Error re-injecting script:', err);
-        }
-      }, 3000);
     } catch (error) {
       console.error('[DiscordRPC] Error injecting renderer script:', error);
     }
@@ -166,6 +154,11 @@ export class DiscordRPCPlugin extends BasePlugin {
         if (!currentUrl.includes('/watch') && !currentUrl.includes('/shorts/')) {
           return null;
         }
+
+        const video = document.querySelector('video');
+        const isPaused = video ? video.paused : false;
+        const elapsedSeconds = video ? video.currentTime : 0;
+        const songDuration = video ? video.duration : 0;
 
         // Get title
         let title = '';
@@ -205,120 +198,103 @@ export class DiscordRPCPlugin extends BasePlugin {
           }
         }
 
-        // Get thumbnail - try to get from page first, then fallback to YouTube thumbnail URL
-        let thumbnailUrl = '';
-        const thumbnailImg = document.querySelector('ytd-watch-flexy img, ytd-video-primary-info-renderer img, ytd-player img, #player img');
-        if (thumbnailImg && thumbnailImg.src) {
-          thumbnailUrl = thumbnailImg.src;
-        } else {
-          // Fallback to YouTube's standard thumbnail URL pattern
-          thumbnailUrl = 'https://img.youtube.com/vi/' + videoId + '/maxresdefault.jpg';
-        }
+        let thumbnailUrl = 'https://img.youtube.com/vi/' + videoId + '/maxresdefault.jpg';
 
-        return { id: videoId, title, channel, thumbnailUrl: thumbnailUrl };
+        return { 
+          id: videoId, 
+          title, 
+          channel, 
+          thumbnailUrl,
+          isPaused,
+          elapsedSeconds,
+          songDuration
+        };
       }
 
-      function updateDiscordRPC() {
+      function updateDiscordRPC(force = false) {
         if (updateTimeout) {
           clearTimeout(updateTimeout);
         }
 
-        updateTimeout = setTimeout(() => {
-          const videoInfo = getVideoInfo();
-          
-          if (!videoInfo || !videoInfo.id) {
-            if (currentVideoId) {
-              currentVideoId = null;
-              startTime = null;
-              if (window.electronAPI && window.electronAPI.invoke) {
-                window.electronAPI.invoke('discord-rpc-clear').catch(function() {});
-              }
+        const videoInfo = getVideoInfo();
+        
+        if (!videoInfo || !videoInfo.id) {
+          if (currentVideoId) {
+            currentVideoId = null;
+            startTime = null;
+            if (window.electronAPI && window.electronAPI.invoke) {
+              window.electronAPI.invoke('discord-rpc-clear').catch(function() {});
             }
-            return;
           }
-          
-          const videoChanged = videoInfo.id !== currentVideoId;
-          if (videoChanged) {
-            currentVideoId = videoInfo.id;
-            startTime = Date.now();
-          }
+          return;
+        }
+        
+        const videoChanged = videoInfo.id !== currentVideoId;
+        if (videoChanged) {
+          currentVideoId = videoInfo.id;
+          startTime = Date.now();
+        }
 
-          if (!videoInfo.title || videoInfo.title.trim() === '' || videoInfo.title === 'YouTube') {
-            videoInfo.title = 'YouTube Video';
-            setTimeout(updateDiscordRPC, 2000);
-          }
+        if (!videoInfo.title || videoInfo.title.trim() === '' || videoInfo.title === 'YouTube') {
+          videoInfo.title = 'YouTube Video';
+          // Retry title extraction later
+          updateTimeout = setTimeout(() => updateDiscordRPC(), 1000);
+        }
 
-          if (window.electronAPI && window.electronAPI.invoke) {
-            window.electronAPI.invoke('discord-rpc-update-video', {
-              id: videoInfo.id,
-              title: videoInfo.title,
-              channel: videoInfo.channel,
-              startTime: startTime || Date.now(),
-              url: 'https://www.youtube.com/watch?v=' + videoInfo.id,
-              imageSrc: videoInfo.thumbnailUrl || ''
-            }).catch(function(err) {
-              console.error('[DiscordRPC] Failed to send update:', err);
-            });
-          }
-        }, 1000);
+        if (window.electronAPI && window.electronAPI.invoke) {
+          window.electronAPI.invoke('discord-rpc-update-video', {
+            id: videoInfo.id,
+            title: videoInfo.title,
+            channel: videoInfo.channel,
+            startTime: startTime || Date.now(),
+            url: 'https://www.youtube.com/watch?v=' + videoInfo.id,
+            imageSrc: videoInfo.thumbnailUrl || '',
+            isPaused: videoInfo.isPaused,
+            elapsedSeconds: videoInfo.elapsedSeconds,
+            songDuration: videoInfo.songDuration
+          }).catch(function(err) {
+            console.error('[DiscordRPC] Failed to send update:', err);
+          });
+        }
+      }
+
+      function setupVideoEvents(video) {
+        if (!video || video.__rpcEventsBound) return;
+        video.__rpcEventsBound = true;
+
+        const events = ['play', 'pause', 'seeked'];
+        events.forEach(evt => {
+          video.addEventListener(evt, () => updateDiscordRPC(true));
+        });
       }
 
       function watchVideo() {
-        if (!document.body) {
-          setTimeout(watchVideo, 100);
-          return;
-        }
-
         updateDiscordRPC();
-        setTimeout(() => updateDiscordRPC(), 2000);
 
-        let lastUrl = location.href;
-        const checkNavigation = () => {
-          const currentUrl = location.href;
-          if (currentUrl !== lastUrl) {
-            lastUrl = currentUrl;
+        // Use the shared utility if available
+        if (window.BetterYouTubeUtils) {
+          window.BetterYouTubeUtils.onNavigation(() => {
             currentVideoId = null;
             startTime = null;
-            setTimeout(updateDiscordRPC, 1000);
-          }
-        };
-
-        window.addEventListener('popstate', checkNavigation);
-        window.addEventListener('hashchange', checkNavigation);
-        
-        const originalPushState = history.pushState;
-        const originalReplaceState = history.replaceState;
-        
-        history.pushState = function(...args) {
-          originalPushState.apply(history, args);
-          setTimeout(checkNavigation, 200);
-          setTimeout(updateDiscordRPC, 500);
-        };
-        
-        history.replaceState = function(...args) {
-          originalReplaceState.apply(history, args);
-          setTimeout(checkNavigation, 200);
-          setTimeout(updateDiscordRPC, 500);
-        };
-        
-        document.addEventListener('yt-navigate-finish', () => {
-          setTimeout(updateDiscordRPC, 1000);
-        });
-
-        const observer = new MutationObserver(() => {
-          updateDiscordRPC();
-        });
-
-        const container = document.querySelector('ytd-watch-flexy, ytd-watch-metadata');
-        if (container) {
-          observer.observe(container, { childList: true, subtree: true });
-        } else {
-          observer.observe(document.body, { childList: true, subtree: false });
+            setTimeout(() => updateDiscordRPC(), 1000);
+          });
+          window.BetterYouTubeUtils.onVideoFound((video) => {
+            setupVideoEvents(video);
+            updateDiscordRPC();
+          });
         }
 
+        // Heartbeat to keep time synced
         setInterval(() => {
-          updateDiscordRPC();
+          const video = document.querySelector('video');
+          if (video && !video.paused) {
+            updateDiscordRPC();
+          }
         }, 2000);
+
+        // Fallback for video events
+        const video = document.querySelector('video');
+        if (video) setupVideoEvents(video);
       }
 
       if (document.readyState === 'loading') {

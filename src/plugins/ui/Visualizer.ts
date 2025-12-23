@@ -10,7 +10,7 @@ export class Visualizer extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'visualizer',
     description: 'Audio visualizer with customizable styles',
-    version: '1.0.0',
+    version: '2.2.2-E-Berkut',
   };
 
   private getRendererScript(): string {
@@ -29,11 +29,10 @@ export class Visualizer extends BasePlugin {
       let ctx = null;
       let animationFrame = null;
       let sourceNode = null;
+      let barGradient = null;
       
-      // Initialize audio context
       function initAudioContext() {
         if (audioContext) return;
-        
         try {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
           audioContext = new AudioContext();
@@ -45,10 +44,8 @@ export class Visualizer extends BasePlugin {
         }
       }
       
-      // Connect video to audio context
       function connectVideo(video) {
         if (!audioContext || !video || sourceNode) return;
-        
         try {
           sourceNode = audioContext.createMediaElementSource(video);
           sourceNode.connect(analyser);
@@ -58,15 +55,8 @@ export class Visualizer extends BasePlugin {
         }
       }
       
-      // Create canvas
       function createCanvas() {
         if (canvas) return;
-        
-        if (!document.body) {
-          setTimeout(createCanvas, 100);
-          return;
-        }
-        
         try {
           canvas = document.createElement('canvas');
           canvas.id = 'audio-visualizer';
@@ -75,135 +65,58 @@ export class Visualizer extends BasePlugin {
           ctx = canvas.getContext('2d');
           canvas.width = canvas.offsetWidth;
           canvas.height = canvas.offsetHeight;
+          
+          barGradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+          barGradient.addColorStop(0, config.colorStart || '#ff0000');
+          barGradient.addColorStop(1, config.colorEnd || '#00ff00');
         } catch (error) {
           console.error('Visualizer: Error creating canvas', error);
         }
       }
       
-      // Draw visualizer
       function draw() {
         if (!analyser || !canvas || !ctx) return;
-        
         analyser.getByteFrequencyData(dataArray);
         
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         const barWidth = canvas.width / dataArray.length;
         let x = 0;
         
+        ctx.fillStyle = barGradient;
         for (let i = 0; i < dataArray.length; i++) {
           const barHeight = (dataArray[i] / 255) * canvas.height;
-          
-          // Gradient colors
-          const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-          gradient.addColorStop(0, config.colorStart || '#ff0000');
-          gradient.addColorStop(1, config.colorEnd || '#00ff00');
-          
-          ctx.fillStyle = gradient;
-          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-          
-          x += barWidth + 1;
+          ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+          x += barWidth;
         }
         
         animationFrame = requestAnimationFrame(draw);
       }
       
-      // Initialize
-      function init() {
-        const video = document.querySelector('video');
-        if (!video) return;
-        
+      function init(video) {
         initAudioContext();
         createCanvas();
         connectVideo(video);
         
         if (audioContext && audioContext.state === 'suspended') {
-          const resume = () => {
-            audioContext.resume();
-            document.removeEventListener('click', resume);
-            document.removeEventListener('touchstart', resume);
-          };
-          document.addEventListener('click', resume);
-          document.addEventListener('touchstart', resume);
+          const resume = () => audioContext.resume();
+          document.addEventListener('click', resume, { once: true });
         }
         
-        if (!animationFrame) {
-          draw();
-        }
+        if (!animationFrame) draw();
       }
       
-      // Watch for video element with debouncing
-      let checkVideoTimeout: any = null;
-      const checkForVideo = () => {
-        if (checkVideoTimeout) return;
-        checkVideoTimeout = setTimeout(() => {
-          checkVideoTimeout = null;
-          const video = document.querySelector('video');
-          if (video && !sourceNode) {
-            init();
-          }
-        }, 500);
-      };
-      
-      function setupObserver() {
-        if (!document.body || !(document.body instanceof Node)) {
-          setTimeout(setupObserver, 500);
-          return;
-        }
-        
-        try {
-          // Only observe player container
-          const playerContainer = document.querySelector('ytd-watch-flexy, #player-container');
-          const target = playerContainer || document.body;
-          
-          const observer = new MutationObserver(checkForVideo);
-          observer.observe(target, {
-            childList: true,
-            subtree: playerContainer ? true : false
-          });
-        } catch (error) {
-          console.error('Visualizer: Observer error', error);
-        }
-      }
-      
-      // Initial check
-      function startPlugin() {
-        if (!document.body) {
-          setTimeout(startPlugin, 100);
-          return;
-        }
-        setTimeout(init, 1000);
-        setupObserver();
-      }
-      
-      // Cleanup on navigation (use events instead of MutationObserver)
-      let lastUrl = location.href;
-      const checkNavigation = () => {
-        const currentUrl = location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
+      if (window.BetterYouTubeUtils) {
+        window.BetterYouTubeUtils.onNavigation(() => {
           if (animationFrame) {
             cancelAnimationFrame(animationFrame);
             animationFrame = null;
           }
           sourceNode = null;
-          setTimeout(init, 1000);
-        }
-      };
-      
-      window.addEventListener('popstate', checkNavigation);
-      window.addEventListener('hashchange', checkNavigation);
-      setInterval(checkNavigation, 2000); // Fallback
-      
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-          setTimeout(startPlugin, 100);
-          setTimeout(setupNavigationObserver, 200);
         });
-      } else {
-        setTimeout(startPlugin, 100);
-        setTimeout(setupNavigationObserver, 200);
+        window.BetterYouTubeUtils.onVideoFound((video) => {
+          setTimeout(() => init(video), 1000);
+        });
       }
     })();
     `;

@@ -11,7 +11,7 @@ export class SponsorBlock extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'sponsorblock',
     description: 'Automatically skips sponsored segments, intros, outros, and more',
-    version: '1.0.0',
+    version: '2.2.2-E-Berkut',
   };
 
   private getRendererScript(): string {
@@ -20,7 +20,6 @@ export class SponsorBlock extends BasePlugin {
     (function() {
       'use strict';
       
-      let currentVideoId = null;
       let segments = [];
       let skipButton = null;
       let skipTimeout = null;
@@ -130,19 +129,16 @@ export class SponsorBlock extends BasePlugin {
         
         for (const segment of segments) {
           const [start, end] = segment.segment;
-          const config = ${JSON.stringify(this.getConfig())};
           const autoSkip = config.autoSkip !== false;
           
           if (currentTime >= start && currentTime < end) {
             if (autoSkip && segment.actionType === 'skip') {
-              // Auto-skip
               if (skipTimeout) clearTimeout(skipTimeout);
               skipTimeout = setTimeout(() => {
                 video.currentTime = end;
                 hideSkipButton();
               }, 50);
             } else {
-              // Show skip button
               showSkipButton(segment);
             }
             return;
@@ -152,67 +148,26 @@ export class SponsorBlock extends BasePlugin {
         hideSkipButton();
       }
       
-      // Initialize SponsorBlock
-      async function init() {
+      async function init(video) {
         const videoId = getVideoId();
+        if (!videoId) return;
         
-        if (!videoId) {
-          return;
-        }
-        
-        if (videoId === currentVideoId) {
-          return; // Already loaded
-        }
-        
-        currentVideoId = videoId;
         segments = await fetchSegments(videoId);
-        
         createSkipButton();
         
-        // Check for segments periodically
-        const video = document.querySelector('video');
-        if (video) {
-          video.addEventListener('timeupdate', checkSegment);
-        }
+        video.removeEventListener('timeupdate', checkSegment);
+        video.addEventListener('timeupdate', checkSegment);
       }
       
-      // Wait for DOM and run
-      function startPlugin() {
-        if (!document.body) {
-          setTimeout(startPlugin, 100);
-          return;
-        }
-        init();
-      }
-      
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-          setTimeout(startPlugin, 100);
-        });
-      } else {
-        setTimeout(startPlugin, 100);
-      }
-      
-      // Use shared navigation observer for better performance
-      // This will be injected via a shared utility
-      // For now, use a more efficient approach
-      let lastUrl = location.href;
-      const checkNavigation = () => {
-        const currentUrl = location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
+      if (window.BetterYouTubeUtils) {
+        window.BetterYouTubeUtils.onNavigation(() => {
           segments = [];
-          skipTimeout = null;
-          setTimeout(init, 1000);
-        }
-      };
-      
-      // Use popstate and hashchange for navigation (more efficient than MutationObserver)
-      window.addEventListener('popstate', checkNavigation);
-      window.addEventListener('hashchange', checkNavigation);
-      
-      // Fallback: check URL periodically (less frequent than MutationObserver)
-      setInterval(checkNavigation, 2000);
+          hideSkipButton();
+        });
+        window.BetterYouTubeUtils.onVideoFound((video) => {
+          init(video);
+        });
+      }
     })();
     `;
   }

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import {
@@ -111,7 +112,7 @@ async function createMainWindow() {
   });
 
   // Error handling
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load:', errorCode, errorDescription, validatedURL);
     if (mainWindow && !mainWindow.isDestroyed()) {
       const errorHTML = `
@@ -128,7 +129,7 @@ async function createMainWindow() {
     }
   });
 
-  mainWindow.webContents.on('console-message', (event, level, message) => {
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
     console.log(`[Renderer ${level}]:`, message);
   });
 
@@ -188,6 +189,9 @@ async function createMainWindow() {
       if (pluginLoader) {
         pluginLoader.callOnRendererLoaded(mainWindow);
       }
+
+      // Inject settings button
+      injectSettingsButton(mainWindow);
     }
   });
 
@@ -338,7 +342,7 @@ function createSettingsWindow() {
   };
 
   // Handle failed loads and fallback to built file
-  settingsWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  settingsWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error('Settings window failed to load:', errorCode, errorDescription, validatedURL);
 
     // Only handle connection refused errors for dev server
@@ -505,6 +509,10 @@ ipcMain.handle('open-settings', () => {
   createSettingsWindow();
 });
 
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.handle('get-plugins', async () => {
   if (!pluginLoader) return [];
   return pluginLoader.getAllPlugins().map(plugin => ({
@@ -514,7 +522,7 @@ ipcMain.handle('get-plugins', async () => {
   }));
 });
 
-ipcMain.handle('toggle-plugin', async (event, pluginName: string, enabled: boolean) => {
+ipcMain.handle('toggle-plugin', async (_event, pluginName: string, enabled: boolean) => {
   if (!pluginLoader) return false;
 
   if (enabled) {
@@ -530,12 +538,12 @@ ipcMain.handle('toggle-plugin', async (event, pluginName: string, enabled: boole
   return true;
 });
 
-ipcMain.handle('get-plugin-config', async (event, pluginName: string) => {
+ipcMain.handle('get-plugin-config', async (_event, pluginName: string) => {
   const plugin = pluginLoader?.getPlugin(pluginName);
   return plugin ? plugin.getConfig() : {};
 });
 
-ipcMain.handle('set-plugin-config', async (event, pluginName: string, pluginConfig: any) => {
+ipcMain.handle('set-plugin-config', async (_event, pluginName: string, pluginConfig: any) => {
   const plugin = pluginLoader?.getPlugin(pluginName);
   if (plugin) {
     plugin.setConfig(pluginConfig);
@@ -637,7 +645,7 @@ async function unloadReturnDislikeExtension() {
 }
 
 // Return YouTube Dislike extension handlers
-ipcMain.handle('toggle-return-dislike', async (event, enabled: boolean) => {
+ipcMain.handle('toggle-return-dislike', async (_event, enabled: boolean) => {
   config.set('returnDislike', { enabled });
   if (enabled) {
     await loadReturnDislikeExtension();
@@ -652,7 +660,7 @@ ipcMain.handle('get-return-dislike-config', async () => {
 });
 
 
-ipcMain.handle('window-action', (event, action: string) => {
+ipcMain.handle('window-action', (_event, action: string) => {
   if (!mainWindow && action !== 'restart') return;
 
   switch (action) {
@@ -674,6 +682,39 @@ ipcMain.handle('window-action', (event, action: string) => {
       app.exit(0);
       break;
   }
+});
+
+// Auto-updater event listeners
+autoUpdater.on('checking-for-update', () => {
+  mainWindow?.webContents.send('update-status', 'checking');
+});
+
+autoUpdater.on('update-available', (_info) => {
+  mainWindow?.webContents.send('update-available', _info);
+});
+
+autoUpdater.on('update-not-available', (_info) => {
+  mainWindow?.webContents.send('update-status', 'up-to-date');
+});
+
+autoUpdater.on('error', (err) => {
+  mainWindow?.webContents.send('update-error', err.message);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  mainWindow?.webContents.send('update-progress', progressObj);
+});
+
+autoUpdater.on('update-downloaded', (_info) => {
+  mainWindow?.webContents.send('update-downloaded', _info);
+});
+
+ipcMain.handle('check-for-updates', () => {
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall();
 });
 
 // App lifecycle
@@ -719,6 +760,13 @@ app.whenReady().then(async () => {
 
   // Create main window
   createMainWindow();
+
+  // Check for updates on startup (after a short delay to ensure window is ready)
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+      console.warn('Auto-update check failed:', err);
+    });
+  }, 5000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
