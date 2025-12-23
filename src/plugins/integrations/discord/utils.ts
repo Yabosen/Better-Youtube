@@ -54,7 +54,7 @@ export const buildDiscordButtons = (
   if (!config.hideGitHubButton) {
     buttons.push({
       label: 'View App On GitHub',
-      url: 'https://github.com/pear-devs/pear-desktop',
+      url: 'https://github.com/Yabosen/Better-Youtube',
     });
   }
   return buttons.length ? buttons : undefined;

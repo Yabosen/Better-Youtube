@@ -114,7 +114,7 @@ async function createMainWindow() {
   });
 
   // Error handling
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load:', errorCode, errorDescription, validatedURL);
     if (mainWindow && !mainWindow.isDestroyed()) {
       const errorHTML = `
@@ -131,8 +131,8 @@ async function createMainWindow() {
     }
   });
 
-  mainWindow.webContents.on('console-message', (event, level, message) => {
-    console.log(`[Renderer ${level}]:`, message);
+  ipcMain.on('save-plugins-state', (_, pluginsState) => {
+    config.set('pluginsState', pluginsState);
   });
 
   // Inject Trusted Types bypass before loading
@@ -341,7 +341,7 @@ function createSettingsWindow() {
   };
 
   // Handle failed loads and fallback to built file
-  settingsWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+  settingsWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
     console.error('Settings window failed to load:', errorCode, errorDescription, validatedURL);
 
     // Only handle connection refused errors for dev server
@@ -449,59 +449,7 @@ function createSettingsWindow() {
   });
 }
 
-// Inject settings button overlay
-function injectSettingsButton(window: BrowserWindow) {
-  const script = `
-    (function() {
-      function createSettingsButton() {
-        if (!document.body || !(document.body instanceof Node)) {
-          setTimeout(createSettingsButton, 100);
-          return;
-        }
-        
-        try {
-          // Remove existing button if present
-          const existing = document.getElementById('better-youtube-settings-btn');
-          if (existing) existing.remove();
-          
-          // Create button element directly (avoid innerHTML for Trusted Types)
-          const button = document.createElement('div');
-          button.id = 'better-youtube-settings-btn';
-          button.textContent = '⚙️ Settings';
-          button.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 999999; background: rgba(0, 0, 0, 0.8); border-radius: 8px; padding: 8px 12px; cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 12px; color: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); transition: background 0.2s;';
-          
-          button.addEventListener('mouseover', () => {
-            button.style.background = 'rgba(0, 0, 0, 0.95)';
-          });
-          button.addEventListener('mouseout', () => {
-            button.style.background = 'rgba(0, 0, 0, 0.8)';
-          });
-          
-          // Add click handler
-          if (window.electronAPI) {
-            button.addEventListener('click', () => {
-              window.electronAPI.openSettings();
-            });
-          }
-          
-          document.body.appendChild(button);
-        } catch (error) {
-          console.error('Error creating settings button:', error);
-        }
-      }
-      
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', createSettingsButton);
-      } else {
-        setTimeout(createSettingsButton, 100);
-      }
-    })();
-  `;
 
-  window.webContents.executeJavaScript(script, true).catch(err => {
-    console.error('Error injecting settings button:', err);
-  });
-}
 
 // IPC Handlers
 ipcMain.handle('open-settings', () => {
@@ -517,7 +465,7 @@ ipcMain.handle('get-plugins', async () => {
   }));
 });
 
-ipcMain.handle('toggle-plugin', async (event, pluginName: string, enabled: boolean) => {
+ipcMain.handle('toggle-plugin', async (_, pluginName: string, enabled: boolean) => {
   if (!pluginLoader) return false;
 
   if (enabled) {
@@ -533,12 +481,12 @@ ipcMain.handle('toggle-plugin', async (event, pluginName: string, enabled: boole
   return true;
 });
 
-ipcMain.handle('get-plugin-config', async (event, pluginName: string) => {
+ipcMain.handle('get-plugin-config', async (_, pluginName: string) => {
   const plugin = pluginLoader?.getPlugin(pluginName);
   return plugin ? plugin.getConfig() : {};
 });
 
-ipcMain.handle('set-plugin-config', async (event, pluginName: string, pluginConfig: any) => {
+ipcMain.handle('set-plugin-config', async (_, pluginName: string, pluginConfig: any) => {
   const plugin = pluginLoader?.getPlugin(pluginName);
   if (plugin) {
     plugin.setConfig(pluginConfig);
@@ -640,7 +588,7 @@ async function unloadReturnDislikeExtension() {
 }
 
 // Return YouTube Dislike extension handlers
-ipcMain.handle('toggle-return-dislike', async (event, enabled: boolean) => {
+ipcMain.handle('toggle-return-dislike', async (_, enabled: boolean) => {
   config.set('returnDislike', { enabled });
   if (enabled) {
     await loadReturnDislikeExtension();
@@ -659,7 +607,7 @@ ipcMain.handle('get-app-version', async () => {
 });
 
 
-ipcMain.handle('window-action', (event, action: string) => {
+ipcMain.handle('window-action', (_, action: string) => {
   if (!mainWindow && action !== 'restart') return;
 
   switch (action) {
@@ -749,43 +697,48 @@ ipcMain.handle('quit-and-install', () => {
   autoUpdater.quitAndInstall();
 });
 
+// Optimization: Performance flags for smoother video
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+
 // App lifecycle
 app.whenReady().then(async () => {
+  const startTime = performance.now();
+
   // Initialize plugin loader
   const userDataPath = app.getPath('userData');
   const pluginsDir = join(userDataPath, 'plugins');
   pluginLoader = new PluginLoader(pluginsDir);
   pluginLoader.setSession(session.defaultSession);
 
-  // Register all plugins
-  const adBlocker = new AdBlocker('adblocker');
-  adBlocker.setSession(session.defaultSession);
-  pluginLoader.registerPlugin(adBlocker);
+  // Parallelize independent startup tasks
+  await Promise.all([
+    (async () => {
+      // Register core plugins
+      const adBlocker = new AdBlocker('adblocker');
+      adBlocker.setSession(session.defaultSession);
+      pluginLoader?.registerPlugin(adBlocker);
 
-  // Load plugins from directory FIRST (filesystem plugins)
-  await pluginLoader.loadPlugins();
+      pluginLoader?.registerPlugin(new SponsorBlock('sponsorblock'));
+      pluginLoader?.registerPlugin(new Downloader('downloader'));
+      pluginLoader?.registerPlugin(new Unhook('unhook'));
+      pluginLoader?.registerPlugin(new AlbumColorTheme('album-color-theme'));
+      pluginLoader?.registerPlugin(new BetterFullscreen('better-fullscreen'));
+      pluginLoader?.registerPlugin(new Visualizer('visualizer'));
+      pluginLoader?.registerPlugin(new InAppMenu('in-app-menu'));
+      pluginLoader?.registerPlugin(new AppMenuBar('app-menu-bar'));
+      pluginLoader?.registerPlugin(new BrowserUI('browser-ui'));
+      pluginLoader?.registerPlugin(new DiscordRPCPlugin('discord-rpc'));
+      pluginLoader?.registerPlugin(new LastFM('lastfm'));
+      pluginLoader?.registerPlugin(new AudioCompressor('audio-compressor'));
+      pluginLoader?.registerPlugin(new ExponentialVolume('exponential-volume'));
 
-  // THEN register programmatic plugins (these will override filesystem plugins)
-  pluginLoader.registerPlugin(new SponsorBlock('sponsorblock'));
-  pluginLoader.registerPlugin(new Downloader('downloader'));
-  pluginLoader.registerPlugin(new Unhook('unhook'));
-
-  pluginLoader.registerPlugin(new AlbumColorTheme('album-color-theme'));
-  pluginLoader.registerPlugin(new BetterFullscreen('better-fullscreen'));
-  pluginLoader.registerPlugin(new Visualizer('visualizer'));
-  pluginLoader.registerPlugin(new InAppMenu('in-app-menu'));
-  pluginLoader.registerPlugin(new AppMenuBar('app-menu-bar'));
-  pluginLoader.registerPlugin(new BrowserUI('browser-ui'));
-  pluginLoader.registerPlugin(new DiscordRPCPlugin('discord-rpc'));
-  pluginLoader.registerPlugin(new LastFM('lastfm'));
-  pluginLoader.registerPlugin(new AudioCompressor('audio-compressor'));
-  pluginLoader.registerPlugin(new ExponentialVolume('exponential-volume'));
-
-  // Copy default plugins to user data directory
-  await copyDefaultPlugins();
-
-  // Load the official Return YouTube Dislike extension if enabled
-  await loadReturnDislikeExtension();
+      // Load filesystem plugins
+      await pluginLoader?.loadPlugins();
+    })(),
+    copyDefaultPlugins(),
+    loadReturnDislikeExtension()
+  ]);
 
   // Call onAppReady for all enabled plugins
   await pluginLoader.callOnAppReady();
@@ -795,6 +748,9 @@ app.whenReady().then(async () => {
 
   // Initialize auto-updater
   setupAutoUpdater();
+
+  const totalTime = (performance.now() - startTime).toFixed(2);
+  console.log(`[PERF] App startup sequence completed in ${totalTime}ms`);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

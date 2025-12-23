@@ -135,19 +135,25 @@ export class DiscordService {
     // Handle paused state display
     if (videoInfo.isPaused) {
       activityInfo.largeImageText = '⏸︎ Paused';
+      // When paused, we don't show a live timer because Discord timers always count up
+      // Instead, we show the current position as a static string if we want,
+      // but usually, clearing startTimestamp is best for "Paused" status.
+      activityInfo.startTimestamp = undefined;
+      activityInfo.endTimestamp = undefined;
     } else if (
       !config.hideDurationLeft &&
       videoInfo.songDuration &&
       videoInfo.songDuration > 0 &&
       typeof videoInfo.elapsedSeconds === 'number'
     ) {
-      const videoStartTime = Date.now() - (videoInfo.elapsedSeconds * 1000);
+      // Calculate start and end based on current playback position
+      const now = Date.now();
+      const videoStartTime = now - (videoInfo.elapsedSeconds * 1000);
       activityInfo.startTimestamp = Math.floor(videoStartTime / 1000);
       activityInfo.endTimestamp = Math.floor(
         (videoStartTime + videoInfo.songDuration * 1000) / 1000,
       );
     } else if (videoInfo.startTime) {
-      // Use the start time from video info
       activityInfo.startTimestamp = Math.floor(videoInfo.startTime / 1000);
     }
 

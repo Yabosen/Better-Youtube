@@ -194,25 +194,28 @@ export class SponsorBlock extends BasePlugin {
       }
       
       // Use shared navigation observer for better performance
-      // This will be injected via a shared utility
-      // For now, use a more efficient approach
-      let lastUrl = location.href;
-      const checkNavigation = () => {
-        const currentUrl = location.href;
-        if (currentUrl !== lastUrl) {
-          lastUrl = currentUrl;
+      if (window.BetterYouTubeUtils) {
+        window.BetterYouTubeUtils.onNavigation(() => {
           segments = [];
           skipTimeout = null;
           setTimeout(init, 1000);
-        }
-      };
-      
-      // Use popstate and hashchange for navigation (more efficient than MutationObserver)
-      window.addEventListener('popstate', checkNavigation);
-      window.addEventListener('hashchange', checkNavigation);
-      
-      // Fallback: check URL periodically (less frequent than MutationObserver)
-      setInterval(checkNavigation, 2000);
+        });
+      } else {
+        // Fallback
+        let lastUrl = location.href;
+        const checkNavigation = () => {
+          const currentUrl = location.href;
+          if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            segments = [];
+            skipTimeout = null;
+            setTimeout(init, 1000);
+          }
+        };
+        window.addEventListener('yt-navigate-finish', checkNavigation);
+        window.addEventListener('popstate', checkNavigation);
+        setInterval(checkNavigation, 3000);
+      }
     })();
     `;
   }

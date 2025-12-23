@@ -1,8 +1,7 @@
-import { app, BrowserWindow, Session } from 'electron';
-import { readdir, readFile, stat } from 'fs/promises';
-import { join } from 'path';
+import { BrowserWindow, Session } from 'electron';
+import { readdir, stat } from 'fs/promises';
 import { Plugin, BasePlugin } from './Plugin';
-import { Config } from '../config/Config';
+import { SharedRendererUtils } from './utils/SharedRendererUtils';
 
 /**
  * Plugin Loader
@@ -11,12 +10,10 @@ import { Config } from '../config/Config';
  */
 export class PluginLoader {
   private plugins: Map<string, Plugin> = new Map();
-  private config: Config;
   private pluginsDirectory: string;
   private session?: Session;
 
   constructor(pluginsDirectory: string) {
-    this.config = Config.getInstance();
     this.pluginsDirectory = pluginsDirectory;
   }
 
@@ -61,15 +58,15 @@ export class PluginLoader {
    */
   private async loadPlugin(pluginName: string): Promise<void> {
     try {
-      const pluginPath = join(this.pluginsDirectory, pluginName);
-      
+      // const pluginPath = join(this.pluginsDirectory, pluginName);
+
       // Try to load plugin entry point
       let pluginModule: any;
       try {
-        const pluginEntryPath = join(pluginPath, 'index.js');
+        // const pluginEntryPath = join(pluginPath, 'index.js');
         // In a real implementation, you'd use require() or dynamic import
         // For now, we'll create a plugin instance from the directory structure
-        pluginModule = await this.createPluginFromDirectory(pluginName, pluginPath);
+        pluginModule = await this.createPluginFromDirectory(pluginName);
       } catch (error) {
         console.warn(`Plugin ${pluginName} has no index.js, skipping`);
         return;
@@ -94,7 +91,7 @@ export class PluginLoader {
    * Create a plugin instance from directory structure
    * This is a fallback for plugins that don't have a proper index.js
    */
-  private async createPluginFromDirectory(pluginName: string, pluginPath: string): Promise<any> {
+  private async createPluginFromDirectory(pluginName: string): Promise<any> {
     // For now, return a basic plugin wrapper
     // In Phase 2, we'll implement proper plugin loading
     return {
@@ -140,7 +137,7 @@ export class PluginLoader {
    */
   public async callOnAppReady(): Promise<void> {
     const enabledPlugins = this.getEnabledPlugins();
-    
+
     for (const plugin of enabledPlugins) {
       if (plugin.onAppReady) {
         try {
@@ -157,7 +154,7 @@ export class PluginLoader {
    */
   public async callOnWindowCreated(window: BrowserWindow): Promise<void> {
     const enabledPlugins = this.getEnabledPlugins();
-    
+
     for (const plugin of enabledPlugins) {
       if (plugin.onWindowCreated) {
         try {
@@ -176,14 +173,17 @@ export class PluginLoader {
     const enabledPlugins = this.getEnabledPlugins();
     console.log(`[PluginLoader] callOnRendererLoaded: Found ${enabledPlugins.length} enabled plugins`);
     console.log(`[PluginLoader] Enabled plugins:`, enabledPlugins.map(p => p.metadata.name));
-    
+
+    // Inject shared utilities first
+    await window.webContents.executeJavaScript(SharedRendererUtils);
+
     for (const plugin of enabledPlugins) {
       // Check if the method exists (including inherited methods)
       const hasHook = typeof plugin.onRendererLoaded === 'function';
       const proto = Object.getPrototypeOf(plugin);
       const methods = proto ? Object.getOwnPropertyNames(proto).join(', ') : 'none';
       console.log(`[PluginLoader] Plugin ${plugin.metadata.name}: hasHook=${hasHook}, type=${typeof plugin.onRendererLoaded}, methods=${methods}`);
-      
+
       if (hasHook && plugin.onRendererLoaded) {
         try {
           console.log(`[PluginLoader] Calling onRendererLoaded for: ${plugin.metadata.name}`);

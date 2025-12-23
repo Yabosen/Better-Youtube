@@ -1,6 +1,8 @@
-import { Session } from 'electron';
+import { Session, app } from 'electron';
 import { ElectronBlocker } from '@cliqz/adblocker-electron';
 import fetch from 'cross-fetch';
+import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { BasePlugin } from '../Plugin';
 import type { PluginMetadata } from '../Plugin';
 
@@ -36,15 +38,36 @@ export class AdBlocker extends BasePlugin {
 
     try {
       console.log('AdBlocker: Initializing...');
-      
-      // Initialize blocker with prebuilt filter lists
-      // These are the same filter lists used by uBlock Origin
-      this.blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
-      
+      const cachePath = join(app.getPath('userData'), 'adblock_cache');
+      const engineFile = join(cachePath, 'engine.bin');
+
+      if (!existsSync(cachePath)) {
+        mkdirSync(cachePath, { recursive: true });
+      }
+
+      if (existsSync(engineFile)) {
+        console.log('AdBlocker: Loading from cache...');
+        const buffer = readFileSync(engineFile);
+        this.blocker = ElectronBlocker.deserialize(new Uint8Array(buffer));
+        console.log('AdBlocker: Loaded from cache successfully');
+      } else {
+        console.log('AdBlocker: Fetching prebuilt lists...');
+        this.blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
+        // Save to cache in the background
+        setTimeout(() => {
+          if (this.blocker) {
+            const buffer = this.blocker.serialize();
+            writeFileSync(engineFile, buffer);
+            console.log('AdBlocker: Engine cached to disk');
+          }
+        }, 5000);
+      }
+
       // Enable blocking in the session
-      this.blocker.enableBlockingInSession(this.session);
-      
-      console.log('AdBlocker: Initialized successfully');
+      if (this.blocker) {
+        this.blocker.enableBlockingInSession(this.session);
+        console.log('AdBlocker: Initialized successfully');
+      }
     } catch (error) {
       console.error('AdBlocker: Error initializing:', error);
       // Don't throw - allow app to continue without adblocker

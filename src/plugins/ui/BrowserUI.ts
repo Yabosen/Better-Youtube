@@ -267,16 +267,20 @@ export class BrowserUI extends BasePlugin {
               margin-top: 0 !important;
             }
             
-            /* Fix guide/sidebar positioning - minimal override */
+            /* Fix guide/sidebar positioning - more robust selectors */
             tp-yt-app-drawer#guide,
-            ytd-mini-guide-renderer {
+            ytd-mini-guide-renderer,
+            #guide-renderer.ytd-app,
+            ytd-guide-renderer.ytd-app {
               top: calc(\${titleBarHeight}px + 56px) !important;
               z-index: 2021 !important;
             }
 
             /* Ensure wrapper doesn't clip */
-            #guide-wrapper {
+            #guide-wrapper,
+            #guide-content {
               overflow: visible !important;
+              height: 100% !important;
             }
             
             /* Fix miniplayer */
@@ -473,9 +477,10 @@ export class BrowserUI extends BasePlugin {
         // Re-inject on SPA navigation
         let lastUrl = location.href;
         const observer = new MutationObserver(() => {
-          if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            setTimeout(init, 100);
+          const currentUrl = location.href;
+          if (currentUrl !== lastUrl) {
+            lastUrl = currentUrl;
+            setTimeout(init, 200);
           }
         });
         observer.observe(document, { subtree: true, childList: true });

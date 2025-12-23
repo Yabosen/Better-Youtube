@@ -29,6 +29,7 @@ export class Visualizer extends BasePlugin {
       let ctx = null;
       let animationFrame = null;
       let sourceNode = null;
+      let barGradient = null;
       
       // Initialize audio context
       function initAudioContext() {
@@ -72,12 +73,23 @@ export class Visualizer extends BasePlugin {
           canvas.id = 'audio-visualizer';
           canvas.style.cssText = \`position: fixed; bottom: 0; left: 0; width: 100%; height: \${config.height || 100}px; z-index: 9998; pointer-events: none; opacity: \${config.opacity || 0.7};\`;
           document.body.appendChild(canvas);
-          ctx = canvas.getContext('2d');
-          canvas.width = canvas.offsetWidth;
-          canvas.height = canvas.offsetHeight;
+          ctx = canvas.getContext('2d', { alpha: true });
+          updateCanvasSize();
+          window.addEventListener('resize', updateCanvasSize);
         } catch (error) {
           console.error('Visualizer: Error creating canvas', error);
         }
+      }
+
+      function updateCanvasSize() {
+        if (!canvas || !ctx) return;
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        
+        // Cache gradient - much faster than creating per bar
+        barGradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+        barGradient.addColorStop(0, config.colorStart || '#ff0000');
+        barGradient.addColorStop(1, config.colorEnd || '#00ff00');
       }
       
       // Draw visualizer
@@ -86,24 +98,17 @@ export class Visualizer extends BasePlugin {
         
         analyser.getByteFrequencyData(dataArray);
         
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Use a faster clear method
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        const barWidth = canvas.width / dataArray.length;
-        let x = 0;
+        const barWidth = (canvas.width / dataArray.length);
+        const barSpacing = 1;
         
+        ctx.fillStyle = barGradient;
+
         for (let i = 0; i < dataArray.length; i++) {
           const barHeight = (dataArray[i] / 255) * canvas.height;
-          
-          // Gradient colors
-          const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-          gradient.addColorStop(0, config.colorStart || '#ff0000');
-          gradient.addColorStop(1, config.colorEnd || '#00ff00');
-          
-          ctx.fillStyle = gradient;
-          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-          
-          x += barWidth + 1;
+          ctx.fillRect(i * (barWidth + barSpacing), canvas.height - barHeight, barWidth, barHeight);
         }
         
         animationFrame = requestAnimationFrame(draw);
@@ -133,8 +138,8 @@ export class Visualizer extends BasePlugin {
         }
       }
       
-      // Watch for video element with debouncing
-      let checkVideoTimeout: any = null;
+      // Watch for video element
+      let checkVideoTimeout = null;
       const checkForVideo = () => {
         if (checkVideoTimeout) return;
         checkVideoTimeout = setTimeout(() => {
@@ -143,25 +148,15 @@ export class Visualizer extends BasePlugin {
           if (video && !sourceNode) {
             init();
           }
-        }, 500);
+        }, 1000); // Less frequent check
       };
       
       function setupObserver() {
-        if (!document.body || !(document.body instanceof Node)) {
-          setTimeout(setupObserver, 500);
-          return;
-        }
-        
         try {
-          // Only observe player container
-          const playerContainer = document.querySelector('ytd-watch-flexy, #player-container');
-          const target = playerContainer || document.body;
-          
+          // Observe specifically for player container changes
+          const target = document.querySelector('ytd-watch-flexy, #player-container') || document.body;
           const observer = new MutationObserver(checkForVideo);
-          observer.observe(target, {
-            childList: true,
-            subtree: playerContainer ? true : false
-          });
+          observer.observe(target, { childList: true, subtree: target === document.body });
         } catch (error) {
           console.error('Visualizer: Observer error', error);
         }
@@ -173,11 +168,11 @@ export class Visualizer extends BasePlugin {
           setTimeout(startPlugin, 100);
           return;
         }
-        setTimeout(init, 1000);
+        setTimeout(init, 1500);
         setupObserver();
       }
       
-      // Cleanup on navigation (use events instead of MutationObserver)
+      // Efficient navigation tracking
       let lastUrl = location.href;
       const checkNavigation = () => {
         const currentUrl = location.href;
@@ -188,22 +183,18 @@ export class Visualizer extends BasePlugin {
             animationFrame = null;
           }
           sourceNode = null;
-          setTimeout(init, 1000);
+          setTimeout(init, 1500);
         }
       };
       
       window.addEventListener('popstate', checkNavigation);
-      window.addEventListener('hashchange', checkNavigation);
-      setInterval(checkNavigation, 2000); // Fallback
+      // YouTube specific navigation event
+      window.addEventListener('yt-navigate-finish', checkNavigation);
       
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-          setTimeout(startPlugin, 100);
-          setTimeout(setupNavigationObserver, 200);
-        });
+        document.addEventListener('DOMContentLoaded', startPlugin);
       } else {
-        setTimeout(startPlugin, 100);
-        setTimeout(setupNavigationObserver, 200);
+        startPlugin();
       }
     })();
     `;
