@@ -1,4 +1,6 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { autoUpdater } from 'electron-updater';
+import log from 'electron-log';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import {
@@ -27,6 +29,7 @@ let pluginLoader: PluginLoader | null = null;
 let returnDislikeExtensionId: string | null = null;
 
 async function createMainWindow() {
+  console.log('--- Operation Berkut - Version 2.2.1-pzX1 Loaded ---');
   // Icon path - try .ico first, then .png
   let iconPath: string | undefined;
   if (app.isPackaged) {
@@ -680,6 +683,72 @@ ipcMain.handle('window-action', (event, action: string) => {
   }
 });
 
+// Auto-update logic
+function setupAutoUpdater() {
+  log.transports.file.level = 'info';
+  autoUpdater.logger = log;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...');
+    mainWindow?.webContents.send('update-status', { status: 'checking' });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info.version);
+    mainWindow?.webContents.send('update-status', { status: 'available', version: info.version });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    log.info('Update not available.');
+    mainWindow?.webContents.send('update-status', { status: 'not-available' });
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.error('Error in auto-updater:', err);
+    mainWindow?.webContents.send('update-status', { status: 'error', error: err.message });
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "Download speed: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    log.info(log_message);
+    mainWindow?.webContents.send('update-status', {
+      status: 'downloading',
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded', info.version);
+    mainWindow?.webContents.send('update-status', { status: 'downloaded', version: info.version });
+
+    // Auto-install update if found on startup
+    // We can show a small notification or just quit and install
+    // For now, let's keep it user-friendly but follow "it installs it"
+    autoUpdater.quitAndInstall();
+  });
+
+  // Check for updates on startup only if packaged
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+      log.error('Failed to check for updates on startup:', err);
+    });
+  }
+}
+
+ipcMain.handle('check-for-updates', async () => {
+  return autoUpdater.checkForUpdatesAndNotify();
+});
+
+ipcMain.handle('quit-and-install', () => {
+  autoUpdater.quitAndInstall();
+});
+
 // App lifecycle
 app.whenReady().then(async () => {
   // Initialize plugin loader
@@ -722,7 +791,10 @@ app.whenReady().then(async () => {
   await pluginLoader.callOnAppReady();
 
   // Create main window
-  createMainWindow();
+  await createMainWindow();
+
+  // Initialize auto-updater
+  setupAutoUpdater();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

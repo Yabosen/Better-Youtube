@@ -1,9 +1,13 @@
 {
   "name": "better-youtube",
-  "version": "2.2.1pz-Berkut",
+  "version": "2.2.1-pzX1-Berkut",
   "description": "Open Source YouTube Desktop Client with Plugin System",
   "main": "dist/main/index.js",
   "homepage": "./",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Yabosen/Better-Youtube.git"
+  },
   "scripts": {
     "dev": "vite",
     "build:main": "tsc -p tsconfig.main.json",

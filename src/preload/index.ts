@@ -18,6 +18,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('get-return-dislike-config'),
   getAppVersion: () =>
     ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () =>
+    ipcRenderer.invoke('check-for-updates'),
+  quitAndInstall: () =>
+    ipcRenderer.invoke('quit-and-install'),
+  onUpdateStatus: (callback: (data: any) => void) => {
+    const subscription = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('update-status', subscription);
+    return () => ipcRenderer.removeListener('update-status', subscription);
+  },
   invoke: (channel: string, ...args: any[]) =>
     ipcRenderer.invoke(channel, ...args)
 });
@@ -35,6 +44,9 @@ declare global {
       toggleReturnDislike: (enabled: boolean) => Promise<boolean>;
       getReturnDislikeConfig: () => Promise<{ enabled: boolean }>;
       getAppVersion: () => Promise<string>;
+      checkForUpdates: () => Promise<any>;
+      quitAndInstall: () => Promise<void>;
+      onUpdateStatus: (callback: (data: any) => void) => () => void;
       invoke: (channel: string, ...args: any[]) => Promise<any>;
     };
   }
