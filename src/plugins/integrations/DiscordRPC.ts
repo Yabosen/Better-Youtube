@@ -13,7 +13,7 @@ export class DiscordRPCPlugin extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'discord-rpc',
     description: 'Show what you\'re watching on Discord',
-    version: '2.2.2-E-Berkut',
+    version: '2.3.0-M2-Terminator',
   };
 
   private discordService: DiscordService | null = null;
@@ -238,7 +238,7 @@ export class DiscordRPCPlugin extends BasePlugin {
         if (!videoInfo.title || videoInfo.title.trim() === '' || videoInfo.title === 'YouTube') {
           videoInfo.title = 'YouTube Video';
           // Retry title extraction later
-          updateTimeout = setTimeout(() => updateDiscordRPC(), 1000);
+          updateTimeout = setTimeout(() => updateDiscordRPC(), 500);
         }
 
         if (window.electronAPI && window.electronAPI.invoke) {
@@ -276,7 +276,7 @@ export class DiscordRPCPlugin extends BasePlugin {
           window.BetterYouTubeUtils.onNavigation(() => {
             currentVideoId = null;
             startTime = null;
-            setTimeout(() => updateDiscordRPC(), 1000);
+            setTimeout(() => updateDiscordRPC(), 500);
           });
           window.BetterYouTubeUtils.onVideoFound((video) => {
             setupVideoEvents(video);
@@ -290,7 +290,7 @@ export class DiscordRPCPlugin extends BasePlugin {
           if (video && !video.paused) {
             updateDiscordRPC();
           }
-        }, 2000);
+        }, 500);
 
         // Fallback for video events
         const video = document.querySelector('video');

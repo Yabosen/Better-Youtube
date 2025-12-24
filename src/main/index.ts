@@ -18,6 +18,7 @@ import {
   LastFM,
   AudioCompressor,
   ExponentialVolume,
+  VolumeBooster,
   BrowserUI,
 } from '../plugins';
 import { config } from '../config/Config';
@@ -49,7 +50,7 @@ function checkDevServer(port: number): Promise<boolean> {
 }
 
 async function createMainWindow() {
-  console.log('--- Operation Berkut - Version 2.2.2-E-Berkut Loaded ---');
+  console.log('--- Operation Terminator - Version 2.3.0-M2-Terminator Loaded ---');
   // Icon path - try .ico first, then .png
   let iconPath: string | undefined;
   if (app.isPackaged) {
@@ -767,6 +768,11 @@ app.whenReady().then(async () => {
   pluginLoader = new PluginLoader(pluginsDir);
   pluginLoader.setSession(session.defaultSession);
 
+  // Check for updates immediately
+  autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    console.error('Failed to check for updates:', err);
+  });
+
   // Register all plugins
   const adBlocker = new AdBlocker('adblocker');
   adBlocker.setSession(session.defaultSession);
@@ -790,6 +796,7 @@ app.whenReady().then(async () => {
   pluginLoader.registerPlugin(new LastFM('lastfm'));
   pluginLoader.registerPlugin(new AudioCompressor('audio-compressor'));
   pluginLoader.registerPlugin(new ExponentialVolume('exponential-volume'));
+  pluginLoader.registerPlugin(new VolumeBooster('volume-booster'));
 
   // Copy default plugins to user data directory
   await copyDefaultPlugins();

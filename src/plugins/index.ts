@@ -28,4 +28,6 @@ export { LastFM } from './integrations/LastFM';
 // Audio Plugins
 export { AudioCompressor } from './audio/AudioCompressor';
 export { ExponentialVolume } from './audio/ExponentialVolume';
+export { VolumeBooster } from './audio/VolumeBooster';
+
 

@@ -37,7 +37,7 @@ export class AppMenuBar extends BasePlugin {
             menuBar.id = 'better-youtube-menu-bar';
             menuBar.style.cssText = \`
               position: fixed;
-              top: 0;
+              top: 38px;
               left: 0;
               right: 0;
               height: 40px;
@@ -100,11 +100,25 @@ export class AppMenuBar extends BasePlugin {
             style.id = 'better-youtube-menu-bar-styles';
             style.textContent = \`
               body {
-                padding-top: 40px !important;
+                padding-top: 78px !important; /* 38px (TitleBar) + 40px (MenuBar) */
               }
               
               ytd-app {
-                margin-top: 40px !important;
+                margin-top: 78px !important;
+              }
+
+              /* Fix Sidebar / Guide Position */
+              tp-yt-app-drawer#guide,
+              ytd-mini-guide-renderer,
+              ytd-guide-renderer#guide-renderer,
+              #guide.ytd-app {
+                top: calc(78px + 56px) !important; /* TitleBar + MenuBar + Masthead */
+              }
+              
+              /* Fix Masthead Position */
+              #masthead-container,
+              ytd-masthead {
+                top: 78px !important;
               }
               
               #better-youtube-menu-bar .menu-bar-item:hover {

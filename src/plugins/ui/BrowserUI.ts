@@ -272,14 +272,25 @@ export class BrowserUI extends BasePlugin {
               margin-top: 0 !important;
             }
             
-            /* Fix guide/sidebar positioning - minimal override */
+            /* Give left sidebar proper position */
+            #guide-content.ytd-app,
+            ytd-guide-renderer,
+            #guide-wrapper {
+              margin-top: 0 !important;
+            }
+            
+            /* Fix guide/sidebar positioning - broader selectors */
             tp-yt-app-drawer#guide,
-            ytd-mini-guide-renderer {
+            ytd-mini-guide-renderer,
+            ytd-guide-renderer#guide-renderer,
+            #guide.ytd-app {
               top: calc(\${titleBarHeight}px + 56px) !important;
               z-index: 2021 !important;
             }
 
             /* Ensure wrapper doesn't clip */
+            #guide-inner-content,
+            #guide-content,
             #guide-wrapper {
               overflow: visible !important;
             }
@@ -341,175 +352,193 @@ export class BrowserUI extends BasePlugin {
                 padding: 0 6px !important;
               }
             }
-          \`;
-          document.head.appendChild(style);
-          
-          // Create title bar structure
-          const titleBar = document.createElement('div');
-          titleBar.id = 'browser-ui-titlebar';
-          
-          // Navigation section (left)
-          const navSection = document.createElement('div');
-          navSection.className = 'nav-section';
-          
-          // Back button
-          const backBtn = document.createElement('button');
-          backBtn.className = 'nav-btn';
-          backBtn.title = 'Go back';
-          backBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
-          backBtn.onclick = (e) => { 
-            e.preventDefault(); 
-            e.stopPropagation(); 
-            if (window.electronAPI && window.electronAPI.navigate) {
-              window.electronAPI.navigate('back');
-            } else {
-              window.history.back();
-            }
-          };
-          
-          // Forward button
-          const forwardBtn = document.createElement('button');
-          forwardBtn.className = 'nav-btn';
-          forwardBtn.title = 'Go forward';
-          forwardBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
-          forwardBtn.onclick = (e) => { 
-            e.preventDefault(); 
-            e.stopPropagation(); 
-            if (window.electronAPI && window.electronAPI.navigate) {
-              window.electronAPI.navigate('forward');
-            } else {
-              window.history.forward();
-            }
-          };
-          
-          // Refresh button
-          const refreshBtn = document.createElement('button');
-          refreshBtn.className = 'nav-btn';
-          refreshBtn.title = 'Refresh';
-          refreshBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>';
-          refreshBtn.onclick = (e) => { 
-            e.preventDefault(); 
-            e.stopPropagation(); 
-            if (window.electronAPI && window.electronAPI.navigate) {
-              window.electronAPI.navigate('refresh');
-            } else {
-              window.location.reload();
-            }
-          };
-          
-          navSection.appendChild(backBtn);
-          navSection.appendChild(forwardBtn);
-          navSection.appendChild(refreshBtn);
-          // Divider and Settings button removed from here
-          
-          // Spacer for draggable area
-          const spacer = document.createElement('div');
-          spacer.className = 'spacer';
-          
-          // Window controls section (right)
-          const windowSection = document.createElement('div');
-          windowSection.className = 'window-section';
 
-          // Settings button (purple accent) - Moved to right side
-          const settingsBtn = document.createElement('button');
-          settingsBtn.className = 'nav-btn settings-btn';
-          settingsBtn.title = 'Settings';
-          settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
-          settingsBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (window.electronAPI && window.electronAPI.openSettings) {
-              window.electronAPI.openSettings().catch(() => {});
+            /* Compatibility with AppMenuBar */
+            body:has(#better-youtube-menu-bar) {
+              padding-top: 78px !important; /* 38 + 40 */
             }
-          };
-          
-          // Add settings button before window controls
-          windowSection.appendChild(settingsBtn);
-          
-          // Add a small separator or margin if needed via CSS, but for now just appending it.
-          // In the CSS verify if nav-btn works well inside window-section or needs adjustment.
-          // The window-section likely uses flexbox, so it should be fine.
-          
-          // Minimize
-          const minimizeBtn = document.createElement('button');
-          minimizeBtn.className = 'window-btn';
-          minimizeBtn.title = 'Minimize';
-          minimizeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-          minimizeBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (window.electronAPI && window.electronAPI.windowAction) {
-              window.electronAPI.windowAction('minimize');
+
+            body:has(#better-youtube-menu-bar) ytd-app {
+              margin-top: 78px !important;
             }
-          };
-          
-          // Maximize
-          const maximizeBtn = document.createElement('button');
-          maximizeBtn.className = 'window-btn';
-          maximizeBtn.title = 'Maximize';
-          maximizeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
-          maximizeBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (window.electronAPI && window.electronAPI.windowAction) {
-              window.electronAPI.windowAction('maximize');
+
+            body:has(#better-youtube-menu-bar) #masthead-container,
+            body:has(#better-youtube-menu-bar) ytd-masthead {
+              top: 78px !important;
             }
-          };
-          
-          // Close
-          const closeBtn = document.createElement('button');
-          closeBtn.className = 'window-btn close-btn';
-          closeBtn.title = 'Close';
-          closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
-          closeBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (window.electronAPI && window.electronAPI.windowAction) {
-              window.electronAPI.windowAction('close');
+            
+            body:has(#better-youtube-menu-bar) #guide.ytd-app {
+              top: calc(78px + 56px) !important;
             }
-          };
-          
-          windowSection.appendChild(minimizeBtn);
-          windowSection.appendChild(maximizeBtn);
-          windowSection.appendChild(closeBtn);
-          
-          // Assemble title bar
-          titleBar.appendChild(navSection);
-          titleBar.appendChild(spacer);
-          titleBar.appendChild(windowSection);
-          
-          // Insert at beginning of body
-          if (document.body) {
-            document.body.insertBefore(titleBar, document.body.firstChild);
-          }
-          
-          console.log('[BrowserUI RENDERER] ✅ Modern title bar created!');
-        }
+          \`;
+    document.head.appendChild(style);
+
+    // Create title bar structure
+    const titleBar = document.createElement('div');
+    titleBar.id = 'browser-ui-titlebar';
+
+    // Navigation section (left)
+    const navSection = document.createElement('div');
+    navSection.className = 'nav-section';
+
+    // Back button
+    const backBtn = document.createElement('button');
+    backBtn.className = 'nav-btn';
+    backBtn.title = 'Go back';
+    backBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+    backBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.navigate) {
+        window.electronAPI.navigate('back');
+      } else {
+        window.history.back();
+      }
+    };
+
+    // Forward button
+    const forwardBtn = document.createElement('button');
+    forwardBtn.className = 'nav-btn';
+    forwardBtn.title = 'Go forward';
+    forwardBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+    forwardBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.navigate) {
+        window.electronAPI.navigate('forward');
+      } else {
+        window.history.forward();
+      }
+    };
+
+    // Refresh button
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'nav-btn';
+    refreshBtn.title = 'Refresh';
+    refreshBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 4v5h-5"/></svg>';
+    refreshBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.navigate) {
+        window.electronAPI.navigate('refresh');
+      } else {
+        window.location.reload();
+      }
+    };
+
+    navSection.appendChild(backBtn);
+    navSection.appendChild(forwardBtn);
+    navSection.appendChild(refreshBtn);
+    // Divider and Settings button removed from here
+
+    // Spacer for draggable area
+    const spacer = document.createElement('div');
+    spacer.className = 'spacer';
+
+    // Window controls section (right)
+    const windowSection = document.createElement('div');
+    windowSection.className = 'window-section';
+
+    // Settings button (purple accent) - Moved to right side
+    const settingsBtn = document.createElement('button');
+    settingsBtn.className = 'nav-btn settings-btn';
+    settingsBtn.title = 'Settings';
+    settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+    settingsBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.openSettings) {
+        window.electronAPI.openSettings().catch(() => { });
+      }
+    };
+
+    // Add settings button before window controls
+    windowSection.appendChild(settingsBtn);
+
+    // Add a small separator or margin if needed via CSS, but for now just appending it.
+    // In the CSS verify if nav-btn works well inside window-section or needs adjustment.
+    // The window-section likely uses flexbox, so it should be fine.
+
+    // Minimize
+    const minimizeBtn = document.createElement('button');
+    minimizeBtn.className = 'window-btn';
+    minimizeBtn.title = 'Minimize';
+    minimizeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    minimizeBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.windowAction) {
+        window.electronAPI.windowAction('minimize');
+      }
+    };
+
+    // Maximize
+    const maximizeBtn = document.createElement('button');
+    maximizeBtn.className = 'window-btn';
+    maximizeBtn.title = 'Maximize';
+    maximizeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>';
+    maximizeBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.windowAction) {
+        window.electronAPI.windowAction('maximize');
+      }
+    };
+
+    // Close
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'window-btn close-btn';
+    closeBtn.title = 'Close';
+    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    closeBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.electronAPI && window.electronAPI.windowAction) {
+        window.electronAPI.windowAction('close');
+      }
+    };
+
+    windowSection.appendChild(minimizeBtn);
+    windowSection.appendChild(maximizeBtn);
+    windowSection.appendChild(closeBtn);
+
+    // Assemble title bar
+    titleBar.appendChild(navSection);
+    titleBar.appendChild(spacer);
+    titleBar.appendChild(windowSection);
+
+    // Insert at beginning of body
+    if (document.body) {
+      document.body.insertBefore(titleBar, document.body.firstChild);
+    }
+
+    console.log('[BrowserUI RENDERER] ✅ Modern title bar created!');
+  }
         
         function init() {
-          injectTitleBarButtons();
-        }
-        
-        // Run immediately and after delays
-        init();
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', init);
-        }
-        setTimeout(init, 500);
-        setTimeout(init, 1500);
-        setTimeout(init, 3000);
-        
-        // Re-inject on SPA navigation
-        let lastUrl = location.href;
-        const observer = new MutationObserver(() => {
-          if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            setTimeout(init, 100);
-          }
-        });
-        observer.observe(document, { subtree: true, childList: true });
-      })();
-    `;
+  injectTitleBarButtons();
+}
+
+// Run immediately and after delays
+init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+}
+setTimeout(init, 500);
+setTimeout(init, 1500);
+setTimeout(init, 3000);
+
+// Re-inject on SPA navigation
+let lastUrl = location.href;
+const observer = new MutationObserver(() => {
+  if (location.href !== lastUrl) {
+    lastUrl = location.href;
+    setTimeout(init, 100);
+  }
+});
+observer.observe(document, { subtree: true, childList: true });
+      }) ();
+`;
   }
 
   public async onRendererLoaded(window: BrowserWindow): Promise<void> {

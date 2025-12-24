@@ -10,7 +10,7 @@ export class Visualizer extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'visualizer',
     description: 'Audio visualizer with customizable styles',
-    version: '2.2.2-E-Berkut',
+    version: '2.3.0-M2-Terminator',
   };
 
   private getRendererScript(): string {

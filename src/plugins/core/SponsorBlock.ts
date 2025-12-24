@@ -11,7 +11,7 @@ export class SponsorBlock extends BasePlugin {
   public metadata: PluginMetadata = {
     name: 'sponsorblock',
     description: 'Automatically skips sponsored segments, intros, outros, and more',
-    version: '2.2.2-E-Berkut',
+    version: '2.3.0-M2-Terminator',
   };
 
   private getRendererScript(): string {
