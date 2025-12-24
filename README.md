@@ -18,8 +18,7 @@ An open-source YouTube Desktop Client built with Electron, TypeScript, and Vite.
 2. **SponsorBlock** - Automatically skips sponsored segments
 3. **Return YouTube Dislike** - Shows dislike counts using the RYD API
 4. **Unhook / UI Cleaner** - Hide Shorts, Comments, Recommendations
-5. **Volume Booster** - Boost audio volume using Web Audio API
-6. **Discord RPC** - Show "Watching [Video]" on Discord
+5. **Discord RPC** - Show "Watching [Video]" on Discord
 
 ## Development
 
